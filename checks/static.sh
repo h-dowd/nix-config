@@ -1470,6 +1470,25 @@ else
 	ok "rofi's config.rasi is declared and present"
 fi
 
+# config.rasi's `terminal:` is a bare binary name that only run mode's
+# Shift+Enter and ssh mode ever reach, so a name that stops resolving is a key
+# that does nothing rather than an error. rofi's own default hides it further:
+# `rofi-sensible-terminal` probes eighteen names and execs whichever resolves
+# first, which here was not the wanted one. docs/gotchas.md -> rofi.
+rofi_term=$(sed -n 's/^ *terminal: *"\([^"]*\)".*/\1/p' "$SRC/dotfiles/rofi/config.rasi")
+if [[ -z $rofi_term ]]; then
+	bad "config.rasi names no terminal, so rofi falls back to probing for one"
+elif [[ $rofi_term == rofi-sensible-terminal ]]; then
+	# It resolves, so a name check alone would pass this. It is the default, and
+	# the default is the defect: it probes eighteen names in its own order and
+	# picked kitty here.
+	bad "rofi's terminal is back to rofi-sensible-terminal, which probes and picked the wrong one"
+elif [[ -x "$PROFILE/$rofi_term" || -x "$SYS/sw/bin/$rofi_term" ]]; then
+	ok "rofi's terminal is $rofi_term, and it resolves"
+else
+	bad "rofi's terminal is $rofi_term, which is in neither profile — run mode's Shift+Enter would do nothing"
+fi
+
 # rofi's modes come from two places that cannot see each other: the built-ins,
 # and the plugins listed in modules/system/desktop.nix. A mode named by
 # config.rasi or by a `-show` bind whose plugin is not built makes rofi print
@@ -3397,6 +3416,50 @@ else
 				"GTK draws nothing and logs nothing, so the module reads as empty:"$'\n'"$iconmiss"
 		else
 			ok "all ${#ICON_NAMES[@]} themed icon names the bar draws resolve in $ICON_THEME"
+		fi
+	fi
+
+	# --- EVERY CURATED APPID IS ALSO A WINDOW-MODE ICON -----------------------
+	#
+	# `rofi -show window -show-icons` (SUPER+w) resolves art from the LOWERCASE
+	# APPID against the icon theme and takes no desktop-file step, unlike drun
+	# (rofi's wayland-window.c:610). An appid that is not itself an icon name
+	# draws a blank column and logs nothing, so modules/home/waybar.nix aliases
+	# the ones the theme has no name for into hicolor.
+	#
+	# This asserts the FLOOR rather than the alias list: every appid the bar
+	# curates must resolve, however it resolves — by the theme, by the app's own
+	# hicolor icon, or by an alias. So an appid added to `appIcons` and forgotten
+	# here fails, and an alias that stops being needed does not.
+	#
+	# Read from the GENERATION, and the same chain rofi walks: `icon-theme` plus
+	# hicolor. rofi does NOT read GTK's setting — with it unset the chain is
+	# {Adwaita, gnome} (rofi-icon-fetcher.c:276), which is why dotfiles.nix
+	# generates rofi/icons.rasi at all.
+	mapfile -t WIN_APPIDS < <(
+		jq -r 'keys[] | select(. != "default")' "$WAYBAR_DIR/app-icons.json" 2>/dev/null
+	)
+	if [[ ${#WIN_APPIDS[@]} -eq 0 ]]; then
+		bad "no appids read from app-icons.json — the scan is broken, not the repo" \
+			"$WAYBAR_DIR/app-icons.json"
+	elif [[ ${#ICON_DIRS[@]} -eq 0 ]]; then
+		: # already reported by the check above; do not say it twice
+	else
+		winmiss=""
+		for a in "${WIN_APPIDS[@]}"; do
+			low=${a,,}
+			found=""
+			for d in "${ICON_DIRS[@]}"; do
+				found=$(find -L "$d" \( -name "$low.svg" -o -name "$low.png" \) -print -quit 2>/dev/null)
+				[[ -n $found ]] && break
+			done
+			[[ -n $found ]] || winmiss+="  $a (looked up as '$low')"$'\n'
+		done
+		if [[ -n $winmiss ]]; then
+			bad "an appid the bar curates has no window-mode icon" \
+				"SUPER+w draws a blank column for it and logs nothing; alias it in modules/home/waybar.nix:"$'\n'"$winmiss"
+		else
+			ok "all ${#WIN_APPIDS[@]} curated appids resolve as window-mode icons in $ICON_THEME"
 		fi
 	fi
 

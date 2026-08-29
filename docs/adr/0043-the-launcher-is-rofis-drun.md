@@ -78,9 +78,20 @@ against `@base` across every scheme in service, not just the selected one:
   rather than blocked — `selected-normal-background` is already an accent block
   and two of those in one window compete.
 - `run` stops being a mode nothing reaches: it is one tab from `drun`.
-- **Icons stay off.** drun with `show-icons: true` would resolve the icon *set*,
-  which is a `native = false` stand-in on this scheme and falls back silently
-  ([0041](0041-artefacts-are-generated-not-named.md)).
+- **Icons stayed off until 2026-08-29, on a reason that was wrong.** The claim
+  was that drun would resolve a `native = false` icon set and fall back
+  silently. It does not: drun resolves the desktop file's own `Icon=`, and every
+  visible entry has one — the only three that did not were dead Arch-carryover
+  `.desktop` files pointing into `/opt` and `~/Applications`, removed the same
+  day. **97 of 97 was measured against the wrong chain**, though, and corrected
+  hours later: rofi does not read GTK's icon theme, so the real figure was 90 of
+  97 against its `{Adwaita, gnome}` fallback. `rofi/icons.rasi` now names the
+  scheme's icon set and it is 96. `native = false` marks a set that does not follow the
+  palette, and [0041](0041-artefacts-are-generated-not-named.md) gives the
+  reason it cannot: app icons are brand colours. That applies to the bar too,
+  and [0052](0052-the-bar-draws-the-icon-theme.md) draws the same set there and
+  in `minimized-menu.sh`. `-show-icons` is on `fb_launcher`, not in
+  `config.rasi`, for the reason the other two flags are.
 - The launcher's colours now follow the desktop mode, like every other menu.
 - `checks/static.sh` needs no new assertion for the bind: its rofi-mode scan
   already reads `-show <mode>` out of the mango tree and asserts rofi has it,

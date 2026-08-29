@@ -326,11 +326,11 @@ Config, by tier ([0009](adr/0009-generated-config-over-linked-files.md), and
 | File | Tier | Purpose |
 |---|---|---|
 | `programs.nix` | 1 | 602 lines. Native `programs.*` for kitty, foot, zed, htop, imv, yazi, ncspot, git and bat, all coloured from `palette.nix` |
-| `waybar.nix` | 1 | 929 lines. **The bar in service** ([0051](adr/0051-waybar-is-the-tiling-bar-again.md)). Six layouts generated from one shared module set via `lib.genAttrs`. The four hand-maintained `.jsonc` files had drifted: `custom/window` carried `max-length` 60 in two of them and 80 in a third |
+| `waybar.nix` | 1 | 929 lines. **The bar in service** ([0051](adr/0051-waybar-is-the-tiling-bar-again.md)). Six layouts generated from one shared module set via `lib.genAttrs`. The four hand-maintained `.jsonc` files had drifted: `custom/window` carried `max-length` 60 in two of them and 80 in a third. Also owns `appIcons`, the appid-to-icon-name map, which generates `icons.css`, `app-icons.json` and the hicolor aliases rofi's window mode needs ([0052](adr/0052-the-bar-draws-the-icon-theme.md)) |
 | `wayle.nix` | 1 | 875 lines. The same shape, six files, and `config.toml` deliberately not among them. Still installed and generated, but nothing starts it ([0051](adr/0051-waybar-is-the-tiling-bar-again.md)) |
 | `theme.nix` | 1 | 166 lines. GTK, Qt, cursor and icons, with every name taken from the theme file rather than spelled out |
 | `mode-theme.nix` | 1 | 180 lines. The per-mode colour sidecars, keyed by mode and never by scheme |
-| `dotfiles.nix` | 2, 3 | 703 lines. What is still a hand-written file. Exactly one tier-3 entry survives: `corectrl` |
+| `dotfiles.nix` | 2, 3 | 703 lines. What is still a hand-written file. Exactly one tier-3 entry survives: `corectrl`. Generates `rofi/icons.rasi`, since rofi does not read GTK's icon theme |
 | `packages.nix` | — | 271 lines. `home.packages`, one owner per package |
 | `shell.nix` | — | 131 lines. zsh via `dotDir`, sourcing `conf.d/*` from `initContent` |
 

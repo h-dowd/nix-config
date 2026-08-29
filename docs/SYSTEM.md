@@ -639,15 +639,18 @@ disagreed with the writers about the path, silently. `lib.sh` also holds
 | `SUPER+Return` | foot (terminal) |
 | `SUPER+SHIFT+Return` | kitty |
 | `SUPER+Space` | Launcher — `rofi -show drun`, or noctalia's own in `noctalia` mode |
+| `SUPER+SHIFT+Space` | Apps **and** open windows in one list (`rofi -show combi`, `combi-modes: drun,window`) — rofi in every mode |
 | `SUPER+=` | Calculator (`rofi -show calc`, result to the clipboard) — rofi in every mode |
 | `SUPER+;` | Emoji picker |
 | `SUPER+B` | Zen browser |
 | `SUPER+E` | Thunar |
+| `SUPER+SHIFT+E` | Open a file — `rofi -show recursivebrowser`, recursive from `$HOME`. The same job as Thunar with rofi instead of a GUI, and the only menu here that reaches a file rather than a system reading |
 | `SUPER+W` | Window switcher (`rofi -show window`) — a picker, unlike `SUPER+Tab`. rofi in **every** mode, incl. noctalia: see §13 |
 | `SUPER+V` | Clipboard history |
 | `SUPER+P` | Bitwarden — rofi in every mode |
 | `SUPER+CTRL+N` / `+B` | Network / Bluetooth |
 | `SUPER+CTRL+V` | VPN menu — rofi in every mode |
+| `SUPER+F1` | rofi's own keybindings (`rofi -show keys`). Rofi's, not mango's — for mango's, read `dotfiles/mango/universal/bind*.conf` |
 | `SUPER+CTRL+W` | Weather panel — rofi in every mode. **Enter** opens the forecast page, **Ctrl+Enter** refetches and redraws. Replaced wayle's `dropdown:weather`, which no key could open (`docs/adr/0050`) |
 
 ⚠️ **Nine of these keys change owner with the desktop mode.** They all route

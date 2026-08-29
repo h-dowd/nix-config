@@ -67,6 +67,7 @@ these link to the record rather than duplicating it, per
 | [0057](0057-one-glyph-pack-was-never-enforced.md) | One glyph pack was never enforced | Accepted (the check [0051](0051-waybar-is-the-tiling-bar-again.md) and [0054](0054-a-module-reports-the-screen-not-its-schedule.md) relied on matched 12 of 51 escapes and passed; adds the third neutral tier [0053](0053-the-bar-separates-selection-from-alarm-by-shape.md) had in practice but not in writing) |
 | [0058](0058-one-text-face-and-the-window-that-is-playing.md) | One text face, one calendar surface, and the window that is playing | Accepted (follows [0057](0057-one-glyph-pack-was-never-enforced.md); retires 0019, 0021, 0035, 0046 and trims [0045](0045-each-mode-owns-its-wallpaper.md)) |
 | [0059](0059-the-bar-is-3270-body-text-is-hack.md) | The bar is 3270; body text is Hack | Accepted (reverses the font clause of [0058](0058-one-text-face-and-the-window-that-is-playing.md); its glyph unification stands) |
+| [0060](0060-rofi-draws-the-schemes-icon-set.md) | rofi draws the scheme's icon set | Accepted (extends [0052](0052-the-bar-draws-the-icon-theme.md) to rofi; corrects the icon clause of [0043](0043-the-launcher-is-rofis-drun.md), which named the wrong cause) |
 
 ## Format
 

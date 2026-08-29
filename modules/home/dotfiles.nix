@@ -539,6 +539,24 @@ in
     # from modules/home/palette.nix. config.rasi `@import`s this one.
     "rofi/config.rasi".source = ../../dotfiles/rofi/config.rasi;
 
+    # The icon theme NAME, generated for the reason colors.rasi is — one owner,
+    # so it cannot drift from what GTK wears.
+    #
+    # rofi does NOT read GTK's setting. With `icon-theme` unset its fallback
+    # chain is {Adwaita, gnome} plus hicolor (rofi-icon-fetcher.c:276), so the
+    # launcher drew Adwaita art beside Papirus everywhere else and resolved 90
+    # of 97 desktop entries instead of 96. Measured 2026-08-29.
+    #
+    # Scheme-level rather than per mode: the icon set is an artefact and follows
+    # scheme.nix, not modes.nix (docs/adr/0034). That is why this is its own
+    # file and not a line in the per-mode colors.rasi. docs/adr/0060
+    "rofi/icons.rasi".text = ''
+      /* GENERATED from modules/home/dotfiles.nix. */
+      configuration {
+        icon-theme: "${p.packages.icons.name}";
+      }
+    '';
+
     # `rofi/colors.rasi` IS NOT DECLARED HERE ANY MORE, and that is the point.
     # It was generated from the palette until 2026-08-19; it is now a RUNTIME
     # SYMLINK that apply_theme re-points at `rofi/colors-<mode>.rasi`, so the

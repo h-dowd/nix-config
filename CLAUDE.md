@@ -131,6 +131,12 @@ internally, along with noctalia's and nvim's. The bar draws individual names out
 of that set — the window title's app icon, the minimized indicator, the battery
 ladder — through `-gtk-icontheme()` in a generated `icons.css` (`docs/adr/0052`).
 
+**rofi draws the same set, and does not read GTK's setting** (`docs/adr/0060`).
+`rofi/icons.rasi` is generated with the name; without it rofi falls back to
+Adwaita. Its window mode looks an icon up by the lowercase appid and never
+consults a desktop file, so `modules/home/waybar.nix` aliases the appids the
+theme has no name for into hicolor from the same `appIcons` map.
+
 A theme file that names nothing buildable is still adoptable. `heartbox` is the
 first: it exists as a colour scheme and nowhere else.
 

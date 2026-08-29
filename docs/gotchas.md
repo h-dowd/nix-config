@@ -890,9 +890,10 @@ is in front, since the launcher became a rofi mode (`docs/adr/0043`).
 border `@subtext` replaced.
 
 **Global options belong on the command line when only one caller wants them.**
-The launcher passes `-matching fuzzy -sort -sorting-method fzf`; the nine
-hand-built `-dmenu` menus want rofi's default matching over their short,
-hand-ordered entries. Unlike `-l` below, the command line **does** win for
+The launcher passes `-matching fuzzy -sort -sorting-method fzf`; the hand-built
+`-dmenu` menus want rofi's default matching over their short, hand-ordered
+entries. No count here on purpose — it was nine when this was written and is
+fourteen now; `checks/static.sh` counts them and holds the floor. Unlike `-l` below, the command line **does** win for
 these — `rofi -matching fuzzy -dump-config` is the cheap way to see which way
 a given option resolves, and it is worth checking per option rather than
 assuming either direction.
@@ -928,6 +929,73 @@ and `checks/static.sh` asserts so, along with "no caller passes `-l`" and "the
 control centre's row count stays under its ceiling". The theme's `lines: 12`
 remains, and is now only the cap for `rofi -show drun|run|window|calc|emoji`,
 where the list is unbounded and paging is the honest answer.
+
+**`recursivebrowser`'s `filter-regex` is a PRUNE, and its default is load-bearing.**
+`recursivebrowser.c:201` `continue`s on a match *before* the `DT_DIR` case that
+queues the descent, so a matched directory is never entered — the regex controls
+the walk, not just what is listed. rofi's default is `^(\..*)`, which is what
+keeps the whole dot-tree out: `$HOME` holds 1,030,333 entries and the mode walks
+190,640 of them, because `.cache` (92,914) and `.local/share/Steam` (186,560)
+are pruned by it. **Overriding `filter-regex` without carrying that alternation
+forward turns a 0.33s walk into the other 840,000 entries**, and nothing reports
+it — the list just keeps filling. `SUPER+SHIFT+E` extends it rather than
+replacing it.
+
+Its two siblings are not the same lever: `directory` sets the root (default
+`$HOME` already) and `command` is the *opener*, not the walker, so an `fd` with
+better ignore rules cannot be substituted. Broken symlinks cost a `Failed to
+stat` warning each on a stderr no keybind reads — `~/Games`' Wine `dosdevices`
+were 1,940 of them, hence `Games` in the alternation.
+
+**rofi does not read GTK's icon theme.** `config.icon_theme` is its own
+setting, and with it unset the fetcher's fallback chain is `{"Adwaita",
+"gnome"}` plus hicolor (`rofi-icon-fetcher.c:276`) — not the Papirus-Dark that
+GTK, the bar and everything else here wear. The launcher spent 2026-08-29
+drawing Adwaita art beside Papirus and resolving 90 of 97 desktop entries
+instead of 96, and nothing said so: an unresolved name draws a blank icon
+column, never an error. `rofi/icons.rasi` is generated from the palette by
+`modules/home/dotfiles.nix` and `@import`ed by `config.rasi`, so the name has
+one owner. Scheme-level, not per mode — the icon set is an artefact
+(`docs/adr/0034`), which is why it is a second file rather than a line in
+`colors.rasi`.
+
+**Window mode looks an icon up by the lowercase appid, with no desktop-file
+step.** `wayland-window.c:610` calls `rofi_icon_fetcher_query(g_utf8_strdown(
+app_id))` and stops there, so an appid that is not itself an icon name draws
+nothing — `zen-beta`, `dev.zed.Zed`, `yazi`, `thunar-*` and every Steam game.
+Measured 2026-08-29: 44 of 97 candidate appids before the icon theme was named,
+55 after. drun does not share the problem because it reads the desktop file's
+`Icon=`. The fetcher *can* read a `.desktop` file, but only when handed an
+**absolute path** (`rofi-icon-fetcher.c:575`, nested under
+`g_path_is_absolute`), which window mode never does — a hand-built dmenu row
+can, and that is the other way to solve this. The way taken instead:
+`modules/home/waybar.nix` aliases the appids the theme has no name for into
+`hicolor/scalable/apps/<appid>.svg`, sourced from `themeIcons` so an alias
+follows the scheme. A package rather than an `xdg.dataFile`, so a name another
+package already owns is a buildEnv collision at `nix flake check` instead of one
+of the two silently winning — which is why `equibop` is *not* aliased, it ships
+its own. `checks/static.sh` asserts the floor: every appid in `app-icons.json`
+resolves, however it resolves.
+
+**dmenu silently ignores the row options script mode honours.** Both parse the
+`\0key\x1fvalue` syntax, and both accept `icon` — that is how
+`minimized-menu.sh` draws per-window art. `nonselectable` and `permanent` are
+**script-mode only**. Measured 2026-08-29 with one `nonselectable` row under
+`-auto-select`: dmenu selected it, script mode did not, and neither logged
+anything. So a `-dmenu` separator row is pressable and every menu here absorbs
+that at the handler — `control-center.sh` returns 1 on one and re-renders,
+which is visibly nothing happening. `-modes "name:script"` is the way out, and
+it also brings `keep-selection` (the control centre's loop respawns rofi per
+action, so the cursor returns to row 1 and the filter clears) and `ROFI_DATA`.
+
+**`terminal:` names one binary, and the default goes looking.** rofi ships
+`terminal: "rofi-sensible-terminal"`, a script that walks eighteen names in its
+own order — `… alacritty kitty wezterm foot ghostty` — and execs the first that
+resolves. foot, kitty and ghostty are all installed here, so it picked kitty,
+which is not this machine's terminal. It reads `$TERMINAL` first, and that is
+unset in a keybind's environment. `terminal: "foot"` since 2026-08-29, resolved
+against both profiles by `checks/static.sh`. Reached by run mode's Shift+Enter
+and by ssh mode.
 
 **A rofi plugin listed as its own package is a plugin rofi never loads.**
 nixpkgs `rofi` is a `symlinkJoin` over `rofi-unwrapped` that adds

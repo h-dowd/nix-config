@@ -40,6 +40,58 @@ let
     default = "application-default-icon";
   };
 
+  # rofi's wayland window mode resolves an icon from the LOWERCASE APPID against
+  # the icon theme and takes no desktop-file step, unlike drun
+  # (rofi's wayland-window.c:610). So an appid that is not itself an icon name
+  # draws nothing and logs nothing — the same silent half docs/adr/0052 gave the
+  # bar's names a check for, reached from a different direction.
+  #
+  # These are the appids above the theme has no name for. NOT `equibop`: it
+  # ships its own hicolor icon, so an alias would be a buildEnv collision at
+  # `nix flake check` rather than a fallback. checks/static.sh asserts the set is
+  # neither short nor stale, against the built generation. docs/adr/0060
+  appIconAliases = [
+    "zen-beta"
+    "imv"
+  ];
+
+  # One symlink per alias into hicolor, which every icon lookup falls back to.
+  # Sourced from `themeIcons` rather than papirus directly, so an alias carries
+  # the same art the bar draws on whichever scheme is selected. The theme's own
+  # directory first, then the whole package: Papirus-Dark inherits most app
+  # icons from Papirus and holds only the ones it overrides.
+  #
+  # `exit 1` on a name the package does not have. A dangling symlink here would
+  # be indistinguishable from having no icon at all.
+  appIconAliasPkg = pkgs.runCommand "rofi-app-icon-aliases" { } (
+    ''
+      d="$out/share/icons/hicolor/scalable/apps"
+      mkdir -p "$d"
+    ''
+    + lib.concatMapStrings (
+      appid:
+      let
+        icon = appIcons.${appid};
+        root = "${pkgs.themeIcons}/share/icons";
+      in
+      ''
+        # LARGEST first, and it is not cosmetic: Papirus draws its small sizes
+        # simplified, and a 16x16 asset parked under scalable/ is what rofi then
+        # renders at menu size. Sorting by the size directory picks the detailed
+        # asset. The theme's own directory before the rest of the package —
+        # Papirus-Dark holds only what it overrides and inherits the remainder.
+        src=$(
+          { find -L ${root}/${p.packages.icons.name} -name '${icon}.svg' 2>/dev/null
+            find -L ${root} -name '${icon}.svg' 2>/dev/null
+          } | awk -F/ '{ for (i = NF; i > 0; i--) if ($i ~ /^[0-9]+x[0-9]+$/) { split($i, a, "x"); print a[1] " " $0; next } print "0 " $0 }' \
+            | sort -rns | head -1 | cut -d" " -f2-
+        )
+        [ -n "$src" ] || { echo "no icon '${icon}' in ${p.packages.icons.name} for appid '${appid}'" >&2; exit 1; }
+        ln -s "$src" "$d/${appid}.svg"
+      ''
+    ) appIconAliases
+  );
+
   # Mirrored by `css_class()` in window-title.sh; checks/static.sh runs both.
   cssClass = lib.replaceStrings [ "." " " ] [ "-" "-" ];
 
@@ -877,6 +929,11 @@ let
   );
 in
 {
+  # Installed rather than declared through xdg.dataFile: the profile's buildEnv
+  # then reports a name another package already owns as a collision at
+  # `nix flake check`, instead of one of the two silently winning.
+  home.packages = [ appIconAliasPkg ];
+
   # Generated into ~/.config/mango/waybar/ alongside the hand-written CSS. The
   # `mango` entry in dotfiles.nix is `recursive = true`, so home-manager links
   # files individually and these coexist with it — but only because the four
