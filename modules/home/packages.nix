@@ -138,6 +138,7 @@
       restic
       lynx
       qbittorrent # also the magnet/torrent handler — see xdg.mimeApps
+      openssl
 
       # --- Documents / writing ------------------------------------------------
       pandoc
@@ -155,7 +156,7 @@
         ]
       ))
       glow
-      libreoffice-fresh
+      libreoffice-stable
       hunspellDicts.en_GB-ise
       hyphen
       zathura
@@ -182,7 +183,6 @@
       # --- Browsers / comms ---------------------------------------------------
       firefox
       chromium
-      vivaldi
       tor-browser
       equibop
       teams-for-linux

@@ -66,6 +66,7 @@
       "spotify"
       "obsidian"
       "vivaldi"
+      "google-chrome"
       "unrar"
       "cloudflare-warp"
       "hplip" # printer drivers
@@ -95,7 +96,7 @@
   # Name the consumer beside each one, and drop the entry when that package
   # goes. `nix-store --query --referrers <path>` says who needs it.
   nixpkgs.config.permittedInsecurePackages = [
-    "electron-40.10.5" # winboat
+    "electron-41.10.6" # winboat
   ];
 
   # Optional but recommended for a laptop: build in the background at low
