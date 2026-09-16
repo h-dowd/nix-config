@@ -106,7 +106,7 @@ in
         wireguard.private-key = "$WG_HOMELAB_PRIVATE_KEY";
         "wireguard-peer.jwg75JGsLgmtvA0JPCgrr/yf4YXCpH3ltDEeHlYsbjU=" = {
           endpoint = "home.henrydowd.dev:443";
-          allowed-ips = "192.168.1.5/32;192.168.1.2/32;192.168.1.10/32;192.168.1.11/32;192.168.1.200/32;10.0.0.0/24;";
+          allowed-ips = "192.168.1.1/32;192.168.1.5/32;192.168.1.2/32;192.168.1.10/32;192.168.1.11/32;192.168.1.200/32;10.0.0.0/24;";
           persistent-keepalive = 25;
         };
         ipv4 = {
