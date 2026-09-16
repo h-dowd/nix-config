@@ -77,6 +77,11 @@ in
 
 {
 
+  # nixpkgs removed buildGo125Module on 2026-09-15 (Go 1.25 EOL); sops-nix still
+  # calls it, so `sops.package` throws before the system closure evaluates. Drop
+  # when upstream migrates. docs/gotchas.md -> nixpkgs and NixOS.
+  buildGo125Module = prev.buildGoModule;
+
   # ==========================================================================
   # theme* — the artefacts the palette cannot colour
   # ==========================================================================

@@ -231,6 +231,19 @@ running the client's store path directly fails Xbox login with
 because the client is 64-bit only and `x86` loads nothing. The
 `Failed to load host libfmod` warning is noise — the launcher never loads it.
 
+**A flake input can pin a builder nixpkgs has deleted.** `nix flake update` moved
+nixpkgs past 2026-09-15, where `buildGo125Module` became a throw (Go 1.25 is
+end-of-life). sops-nix still builds `sops-install-secrets` with it, and
+`sops.package` is reached from `system.activationScripts`, so the entire system
+closure fails to evaluate on an error that names a Go version and nothing else —
+not the input, not the package. The only identifying detail in the trace is the
+store path of the sops-nix source.
+
+The carry is an alias in the overlay, `buildGo125Module = prev.buildGoModule;`,
+until upstream migrates. It has to be global: `.override { buildGo125Module = …; }`
+on the package throws anyway, because callPackage forces the whole argument set
+before the override is applied.
+
 ---
 
 ## Desktop
