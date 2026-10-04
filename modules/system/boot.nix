@@ -54,7 +54,12 @@
 
   # Arch's `linux-firmware` equivalent, plus the sof-firmware you have installed.
   hardware.enableAllFirmware = true;
-  hardware.firmware = [ pkgs.sof-firmware ];
+  # yellow-carp-dmcub goes first, because the first package with a file wins.
+  # docs/gotchas.md → Power.
+  hardware.firmware = lib.mkMerge [
+    (lib.mkBefore [ pkgs.yellow-carp-dmcub ])
+    [ pkgs.sof-firmware ]
+  ];
 
   # Snapper: on NixOS this is much less load-bearing than on Arch, because
   # every rebuild already produces a rollback-able generation. Kept for /home,

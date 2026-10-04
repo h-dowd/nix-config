@@ -334,7 +334,7 @@ Config, by tier ([0009](adr/0009-generated-config-over-linked-files.md), and
 | `packages.nix` | — | 271 lines. `home.packages`, one owner per package |
 | `shell.nix` | — | 131 lines. zsh via `dotDir`, sourcing `conf.d/*` from `initContent` |
 
-### `pkgs/` — the overlay, 924 lines plus generators
+### `pkgs/` — the overlay, 938 lines plus generators
 
 One overlay, one entry point. `pkgs/default.nix` is `{inputs}: final: prev:` and
 defines three groups.
@@ -348,7 +348,7 @@ luminance), `paletteCursors`, `themeYazi`, `themeZed`, `adwaitaShellIcons`,
 **Packages absent from nixpkgs** — `brother-mfc-l3740cdw`, `curseforge`,
 `power-profiles-tlp`.
 
-**Overrides** — `noctalia-shell.overrideAttrs`, patching its mango backend
+**Overrides** — `yellow-carp-dmcub`, one display firmware file pinned to linux-firmware 20260810 (`docs/gotchas.md` → Power); `noctalia-shell.overrideAttrs`, patching its mango backend
 ([0025](adr/0025-patch-noctalias-mango-backend.md)).
 
 | Helper | Purpose |
@@ -366,13 +366,13 @@ luminance), `paletteCursors`, `themeYazi`, `themeZed`, `adwaitaShellIcons`,
 present for one and absent for the other is a build-time `KeyError` rather than a
 divergence.
 
-### `checks/static.sh` — 4,289 lines
+### `checks/static.sh` — 4,368 lines
 
 Takes five arguments: source root, home generation, system toplevel,
 `schemes.json`, `packages.json`. Sections: Repo, Scripts, Secrets,
 Runtime-selected files, Mango config parse, Generated palette, Theme packages,
 NetworkManager profiles, Generated wayle layouts, Generated waybar configs,
-Battery, Idle, Fonts, Shell completions, Signal traps, Package ownership.
+Battery, Idle, Fonts, Shell completions, Display firmware, Signal traps, Package ownership.
 
 It reads what home-manager actually wrote, under `$GEN/home-files/.config`,
 rather than the sources — several files no longer have a source. Nothing is

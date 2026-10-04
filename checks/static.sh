@@ -4199,6 +4199,22 @@ for fn in _nix-shell _nixos-option; do
 	fi
 done
 
+# --- display firmware -------------------------------------------------------
+# linux-firmware 20260910's yellow_carp_dmcub fails to load and breaks the panel,
+# with the build still succeeding. docs/gotchas.md → Power.
+FW="$SYS/firmware/amdgpu"
+dmcub=$(readlink -f "$FW/yellow_carp_dmcub.bin.zst" 2>/dev/null)
+lfw=$(readlink -f "$FW/yellow_carp_pfp.bin.zst" 2>/dev/null | grep -oE 'linux-firmware-[0-9]+')
+if [[ -z $dmcub || -z $lfw ]]; then
+	bad "yellow_carp firmware not found in the system firmware — the scan is broken, not the repo" "$FW"
+elif [[ $dmcub != *-yellow-carp-dmcub-* ]]; then
+	bad "yellow_carp_dmcub comes from ${dmcub#/nix/store/*-}, not the 20260810 pin"
+elif [[ $lfw != linux-firmware-20260910 ]]; then
+	ok "yellow_carp_dmcub is pinned; nixpkgs now ships $lfw — retest without the pin"
+else
+	ok "yellow_carp_dmcub is pinned over $lfw"
+fi
+
 # --- signal traps -----------------------------------------------------------
 # A handler trapped on a terminating signal replaces that signal's default
 # action — bash runs it and then resumes. Two mango watchers written that way

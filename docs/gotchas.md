@@ -2185,6 +2185,26 @@ carry no kernel messages. This produced a confident "zero crashes on Arch" that
 was an artefact of the read. Confirm the `Linux version` lines are non-empty
 before believing any zero.
 
+### linux-firmware 20260910 breaks the panel
+
+After the re-lock to linux-firmware 20260910, the internal panel rendered in the
+top half with streaks below. Rolling back fixed it. The build and the switch
+reported nothing. The cause is `amdgpu/yellow_carp_dmcub.bin`: 20260910 ships
+DMUB `0x0400004A`, older than 20260810's `0x0400004C`, and it fails to load:
+
+```
+[drm] *ERROR* Error getting DMUB FW meta info: 4
+failed to load ucode DMCUB(0x3F)
+[drm] *ERROR* dc_dmub_srv_log_diagnostic_data: DMCUB error - collecting diagnostic data
+```
+
+It was the firmware, not the kernel. Boots on kernels 7.2.5 and 7.2.6 both broke
+with 20260910, and generations 166 and 167 had the same kernel. `pkgs.yellow-carp-dmcub`
+pins only that file from 20260810, listed first in `hardware.firmware`.
+`checks/static.sh` fails if the pin stops winning and flags a new linux-firmware
+version for a retest. Firmware loads at boot, so test the drop with `boot`, not
+`test`. The tell is `journalctl -k -b | grep 'Loading DMUB'`.
+
 ---
 
 ## Editors
