@@ -334,7 +334,7 @@ Config, by tier ([0009](adr/0009-generated-config-over-linked-files.md), and
 | `packages.nix` | — | 271 lines. `home.packages`, one owner per package |
 | `shell.nix` | — | 131 lines. zsh via `dotDir`, sourcing `conf.d/*` from `initContent` |
 
-### `pkgs/` — the overlay, 938 lines plus generators
+### `pkgs/` — the overlay, 972 lines plus generators
 
 One overlay, one entry point. `pkgs/default.nix` is `{inputs}: final: prev:` and
 defines three groups.
@@ -348,8 +348,12 @@ luminance), `paletteCursors`, `themeYazi`, `themeZed`, `adwaitaShellIcons`,
 **Packages absent from nixpkgs** — `brother-mfc-l3740cdw`, `curseforge`,
 `power-profiles-tlp`.
 
-**Overrides** — `yellow-carp-dmcub`, one display firmware file pinned to linux-firmware 20260810 (`docs/gotchas.md` → Power); `noctalia-shell.overrideAttrs`, patching its mango backend
-([0025](adr/0025-patch-noctalias-mango-backend.md)).
+**Overrides** — `yellow-carp-dmcub`, one display firmware file pinned to
+linux-firmware 20260810 (`docs/gotchas.md` → Power); `noctalia-qs`, dropping a
+breakpad input that does not link under the GCC 16 stdenv (`docs/gotchas.md` →
+nixpkgs); `noctalia-shell`, patching its mango backend
+([0025](adr/0025-patch-noctalias-mango-backend.md)) and rewired onto that
+`noctalia-qs`; `buildGo125Module`, an alias for the builder sops-nix still names.
 
 | Helper | Purpose |
 |---|---|

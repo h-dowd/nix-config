@@ -574,6 +574,38 @@ in
       });
 
   # ==========================================================================
+  # noctalia-qs — breakpad does not link under nixpkgs' GCC 16 stdenv
+  # ==========================================================================
+  # nixpkgs leaves CRASH_HANDLER off, so breakpad is a build input the binary
+  # never uses, and no closure here has ever referenced it. Dropping it skips a
+  # build that cannot succeed. docs/gotchas.md → nixpkgs.
+  #
+  # The two guards are the point: filtering a list that no longer holds the item
+  # is a silent no-op, and re-enabling the crash handler would make breakpad
+  # load-bearing without changing this expression. Both are evaluation errors.
+  # The guards live inside `buildInputs` rather than wrapping the attrset:
+  # `overrideAttrs` evaluates the body to learn the attribute NAMES, so a
+  # top-level `throwIf` reading `old` is an infinite recursion
+  # (make-derivation.nix:236).
+  noctalia-qs = prev.noctalia-qs.overrideAttrs (
+    old:
+    let
+      isBreakpad = x: (x.pname or "") == "breakpad";
+    in
+    {
+      buildInputs =
+        prev.lib.throwIf (!prev.lib.any isBreakpad old.buildInputs)
+          "noctalia-qs no longer takes breakpad — drop this override"
+          (
+            prev.lib.throwIf
+              (prev.lib.any (prev.lib.hasInfix "CRASH_HANDLER") old.cmakeFlags)
+              "noctalia-qs now sets CRASH_HANDLER — breakpad is load-bearing, so fix the build rather than dropping it"
+              (prev.lib.filter (x: !isBreakpad x) old.buildInputs)
+          );
+    }
+  );
+
+  # ==========================================================================
   # noctalia-shell — its mango backend still speaks dwl's dead flags
   # ==========================================================================
   # `MangoService.qml` drives mango through `mmsg -s -d <func>`, the dwl-era
@@ -591,7 +623,9 @@ in
   # error. The verbs are checked against mango's own function table by
   # checks/static.sh. `-g -A` and `-s -t` are left alone deliberately — they
   # need a different call shape, not a different spelling (docs/adr/0020).
-  noctalia-shell = prev.noctalia-shell.overrideAttrs (old: {
+  # `.override`, because `overrideAttrs` alone would keep prev's noctalia-qs,
+  # the one that still pulls breakpad in.
+  noctalia-shell = (prev.noctalia-shell.override { inherit (final) noctalia-qs; }).overrideAttrs (old: {
     postPatch = (old.postPatch or "") + ''
       substituteInPlace Services/Compositor/MangoService.qml \
         --replace-fail '"mmsg", "-s", "-d",' '"mmsg", "dispatch",' \

@@ -686,7 +686,7 @@ profiles this repo declares. `SUPER+W` is a third case — noctalia *has*
 
 | Key | Action |
 |---|---|
-| `SUPER+1…9` | Go to tag |
+| `SUPER+1…7` | Go to tag. Not 8 or 9 — they collide with `SUPER+[` / `SUPER+]` on the gb layout (`docs/gotchas.md` → Desktop); reach those tags with `SUPER+ALT+h/l` or move a window there with `SUPER+SHIFT+8/9` |
 | `SUPER+SHIFT+1…9` | Move window to tag and follow |
 | `SUPER+CTRL+SHIFT+1…9` | Move window to tag silently |
 | `SUPER+CTRL+H` / `+L` | Previous / next tag |

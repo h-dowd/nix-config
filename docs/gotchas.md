@@ -244,6 +244,40 @@ until upstream migrates. It has to be global: `.override { buildGo125Module = �
 on the package throws anyway, because callPackage forces the whole argument set
 before the override is applied.
 
+**An unused build input can still break the whole closure.** The 2026-10-02
+re-lock moved the default stdenv to GCC 16.2, and `breakpad` 2024.02.16 no longer
+links under it: `undefined reference to vtable for
+google_breakpad::FastSourceLineResolver::Module`. Hydra has not built it either,
+so there is nothing to substitute, and every path to it runs through
+`noctalia-shell → noctalia-qs → breakpad`. nixpkgs leaves `CRASH_HANDLER` off, so
+the binary never used breakpad — the running closure has never referenced it. The
+overlay filters it out of `noctalia-qs.buildInputs`.
+
+Two details cost an hour between them. `prev.noctalia-shell.overrideAttrs` keeps
+prev's `noctalia-qs`, so overriding `noctalia-qs` alone changes nothing that
+reaches the system; it needs `.override { inherit (final) noctalia-qs; }` first.
+And the guards cannot wrap the attrset `overrideAttrs` returns — the attribute
+*names* are forced to build the fixpoint, so a top-level `throwIf` reading `old`
+is an infinite recursion reported at `make-derivation.nix:236`. They go inside
+the `buildInputs` value instead.
+
+Filtering a list that no longer holds the item passes by doing nothing, which is
+why the override throws if breakpad is absent, and throws again if a future
+version turns `CRASH_HANDLER` on and makes it load-bearing.
+
+`rstudio` 2026.09.0 broke in the same bump and is commented out in
+`modules/home/packages.nix` until upstream builds again: `undefined reference to
+boost::urls::grammar::detail::condition_cat`, linking `rsession` against boost
+1.91. Not a stdenv mismatch — boost and rstudio are both on GCC 16.2 — so there
+is no local override to align, and `.override { stdenv = gcc15Stdenv; }` would
+leave the symbol in a boost still built by GCC 16. Nothing else here uses R.
+
+Both were found the same way: `nix flake check --keep-going`, which reports every
+root failure instead of stopping at the first. Without it rstudio was invisible
+behind breakpad. Watch the exit status rather than the tail of a pipe — `nix
+flake check 2>&1 | tail` exits 0 on the *tail*, which is how the first run of
+this looked clean.
+
 ---
 
 ## Desktop
@@ -1214,6 +1248,26 @@ The difference is what kind of setting it is. `show-icons` is a **configuration*
 option, which the command line overrides; `lines` is a **theme** property, and
 on rofi 2.0 the theme beats the command line — which is why `-l` is inert here
 and `-theme-str` is not.
+
+**A keysym can live on two keys, and the second bind silently loses.** The gb
+layout includes `latin`, which puts `bracketleft` on `<AE08>` and `bracketright`
+on `<AE09>` at AltGr level — AltGr+8 is `[`. mango resolves a bind's keysym to a
+keycode, so `bind=SUPER,bracketleft` and `bind=SUPER,8` land on the same keycode
+and one of them does nothing. The two named-scratchpad binds and the tag-8/tag-9
+views had been in that state since they were added.
+
+mango only started reporting it in 0.17.4, as `[WARNING] Key binding conflict in
+keymode default` naming the two config lines; 0.16.3 took the config without a
+word. `checks/static.sh` fails on any mango stderr, which is why the bump
+surfaced it — a conflict warning is the same class of defect as the `[ERROR]`
+that check was written for.
+
+`SUPER,8` and `SUPER,9` are gone rather than the brackets. Modifiers are part of
+the comparison, so `SUPER+SHIFT,8` and `SUPER+CTRL+SHIFT,8` are unaffected and
+both tags stay reachable. Verify a candidate key before using it: `mango -p` in a
+scratch `$HOME` with the real `xkb_rules_layout`, which is what found that
+`SUPER+ALT,bracketleft` and `SUPER,minus` are clean while `SUPER,braceleft` is
+not.
 
 ---
 

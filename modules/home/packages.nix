@@ -195,7 +195,9 @@
       proton-authenticator
       cloudflare-warp
       silverbullet
-      rstudio
+      # rstudio — boost::urls does not link under the GCC 16 stdenv, and hydra
+      # has not built it either. docs/gotchas.md → nixpkgs. Restore the line.
+      # rstudio
 
       # --- Games --------------------------------------------------------------
       lutris
