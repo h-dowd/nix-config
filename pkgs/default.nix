@@ -675,15 +675,6 @@ in
     meta.platforms = [ "x86_64-linux" ];
   };
 
-  # Rembrandt's display firmware from linux-firmware 20260810. 20260910's fails
-  # to load and the panel renders squished and streaked. docs/gotchas.md → Power.
-  yellow-carp-dmcub = prev.runCommand "yellow-carp-dmcub-20260810" {
-    src = prev.fetchurl {
-      url = "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/20260810/amdgpu/yellow_carp_dmcub.bin";
-      sha256 = "0iysbi3990379qyvkm0vyylvaz7k6bfrqamh8m46h9x7igar3jsb";
-    };
-  } "install -Dm444 $src $out/lib/firmware/amdgpu/yellow_carp_dmcub.bin";
-
   # ==========================================================================
   # CurseForge (AppImage)
   # ==========================================================================

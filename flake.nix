@@ -165,6 +165,8 @@
                 # xmllint, for power-profiles-tlp's dbus policy — an ill-formed
                 # one is rejected by the whole system bus, not just by us.
                 pkgs.libxml2
+                # zstd, to hash the display firmware the system actually ships.
+                pkgs.zstd
               ];
             }
             ''

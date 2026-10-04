@@ -2253,11 +2253,19 @@ failed to load ucode DMCUB(0x3F)
 ```
 
 It was the firmware, not the kernel. Boots on kernels 7.2.5 and 7.2.6 both broke
-with 20260910, and generations 166 and 167 had the same kernel. `pkgs.yellow-carp-dmcub`
-pins only that file from 20260810, listed first in `hardware.firmware`.
-`checks/static.sh` fails if the pin stops winning and flags a new linux-firmware
-version for a retest. Firmware loads at boot, so test the drop with `boot`, not
-`test`. The tell is `journalctl -k -b | grep 'Loading DMUB'`.
+with 20260910, and generations 166 and 167 had the same kernel.
+
+**Fixed upstream in 20260916, which ships 20260810's file back byte-identical**
+(`sha256:4bcb91d5…`), so the `pkgs.yellow-carp-dmcub` pin is retired. Comparing
+the two blobs settled the retest without a reboot — identical bytes cannot load
+differently. Confirmed on kernel 7.2.8: `Loading DMUB firmware via PSP:
+version=0x0400004C`.
+
+`checks/static.sh` now hashes the decompressed blob the system ships rather than
+asserting which package carries it. That survives the pin's removal, and it
+fires if the regression returns through any package. Firmware loads at boot, so
+a change here is tested with `boot` or `switch`, never `test`. The tell is
+`journalctl -k -b | grep 'Loading DMUB'`.
 
 ---
 

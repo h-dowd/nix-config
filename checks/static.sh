@@ -4200,19 +4200,28 @@ for fn in _nix-shell _nixos-option; do
 done
 
 # --- display firmware -------------------------------------------------------
-# linux-firmware 20260910's yellow_carp_dmcub fails to load and breaks the panel,
-# with the build still succeeding. docs/gotchas.md → Power.
+# The blob, by content, not the package that carries it. linux-firmware 20260910
+# shipped a yellow_carp_dmcub that fails to load and renders the panel squished
+# and streaked, with the build and the switch reporting nothing; 20260916 ships
+# the working one back, byte-identical to 20260810. A hash rather than a pin,
+# because this catches the regression returning through any package, and the one
+# thing that must not happen again is this file changing unnoticed.
+# docs/gotchas.md → Power.
+DMCUB_GOOD=4bcb91d58ba727684845b02a9cdd32f37cb5a9f71bd4b93d4e678094465cda47
 FW="$SYS/firmware/amdgpu"
-dmcub=$(readlink -f "$FW/yellow_carp_dmcub.bin.zst" 2>/dev/null)
+dmcub="$FW/yellow_carp_dmcub.bin.zst"
 lfw=$(readlink -f "$FW/yellow_carp_pfp.bin.zst" 2>/dev/null | grep -oE 'linux-firmware-[0-9]+')
-if [[ -z $dmcub || -z $lfw ]]; then
+if [[ ! -e $dmcub || -z $lfw ]]; then
 	bad "yellow_carp firmware not found in the system firmware — the scan is broken, not the repo" "$FW"
-elif [[ $dmcub != *-yellow-carp-dmcub-* ]]; then
-	bad "yellow_carp_dmcub comes from ${dmcub#/nix/store/*-}, not the 20260810 pin"
-elif [[ $lfw != linux-firmware-20260910 ]]; then
-	ok "yellow_carp_dmcub is pinned; nixpkgs now ships $lfw — retest without the pin"
 else
-	ok "yellow_carp_dmcub is pinned over $lfw"
+	got=$(zstd -dc "$dmcub" 2>/dev/null | sha256sum | cut -d' ' -f1)
+	if [[ -z $got || $got == *[!0-9a-f]* ]]; then
+		bad "yellow_carp_dmcub did not decompress — the scan is broken, not the repo" "$dmcub"
+	elif [[ $got != "$DMCUB_GOOD" ]]; then
+		bad "yellow_carp_dmcub from $lfw is not the DMUB 0x0400004C blob — check 'Loading DMUB' on the next boot and re-pin if it regressed" "$got"
+	else
+		ok "yellow_carp_dmcub from $lfw is the DMUB 0x0400004C blob"
+	fi
 fi
 
 # --- signal traps -----------------------------------------------------------
