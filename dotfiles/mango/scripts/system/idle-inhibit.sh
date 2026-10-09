@@ -77,7 +77,7 @@ do_toggle() {
 do_status() {
 	case "$(systemctl --user is-active "$UNIT" 2>/dev/null)" in
 	active)
-		printf '{"text":"%s","class":"activated","tooltip":"Idle inhibited — nothing dims, locks or sleeps"}\n' "$ICON_ON"
+		printf '{"text":"%s","class":"activated","tooltip":"Idle inhibited — nothing dims, locks or sleeps, and the lid does nothing"}\n' "$ICON_ON"
 		;;
 	failed)
 		printf '{"text":"%s","class":"failed","tooltip":"Keep awake FAILED — the idle ladder is live. systemctl --user status %s"}\n' "$ICON_ON" "$UNIT"

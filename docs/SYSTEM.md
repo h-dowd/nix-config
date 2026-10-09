@@ -1147,7 +1147,8 @@ interface: a game, a call in an app that publishes none.
 
 **`SUPER+SHIFT+A`, or click the bar's `custom/idle-inhibitor`** (`full` and
 `focus` layouts, between night mode and the power profile). 󰒲 means the ladder
-is live; 󰒳 in yellow means nothing dims, locks or sleeps.
+is live; 󰒳 in yellow means nothing dims, locks or sleeps, and closing the lid
+does nothing.
 
 Both run `scripts/system/idle-inhibit.sh toggle`, which starts or stops
 **`wlinhibit.service`**. That unit holds a `zwp_idle_inhibit_manager_v1`
@@ -1155,6 +1156,11 @@ inhibitor — the mechanism mpv and Firefox use, the one mango feeds into
 `wlr_idle_notifier_v1_set_inhibited`, and the only one that reaches swayidle at
 all. **No timeout, ever**: an inhibitor that silently expires part-way through is
 the failure it exists to prevent.
+
+The same unit wraps wlinhibit in `systemd-inhibit --what=handle-lid-switch
+--mode=block`, so a closed lid neither hibernates nor locks while it is held.
+Check with `systemd-inhibit --list | grep lid`. noctalia's own keep-awake holds
+no lid lock.
 
 The unit is the state. It survives `waybar-reload`, both bar switches, a switch
 to `minimal` (which does not carry the module) and both desktop modes;

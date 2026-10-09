@@ -2031,6 +2031,11 @@ and the WiFi resume fix. The traps worth remembering:
   and unlocked — accepted here, since locking would lock the session out of the
   external display in use. It is easy to miss precisely because it looks like the
   lid doing nothing, which is what `ignore` is supposed to look like.
+- **Keep awake also disables the lid.** `wlinhibit.service` holds a
+  `handle-lid-switch` block lock, so a closed lid with keep-awake on stays awake
+  and unlocked, like the docked case above. Low-level `handle-*` locks bypass
+  `LidSwitchIgnoreInhibited`. A user unit takes one without a polkit prompt
+  (verified 2026-10-09).
 - **`lock` as a lid action is edge-only, and would silently not re-fire.**
   `manager_handle_action` bails on `HANDLE_LOCK` when `!is_edge`
   (`logind-action.c`), while sleep actions have no such guard. Since logind

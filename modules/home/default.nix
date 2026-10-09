@@ -237,6 +237,8 @@ in
   # wl_surface — the one mechanism mango's ext_idle_notifier honours, and so the
   # only thing that stops swayidle's ladder from inside the session
   # (`systemd-inhibit --what=idle` does not reach it at all, SYSTEM.md §9).
+  # It also blocks `handle-lid-switch`, so a closed lid does nothing while held;
+  # logind honours that lock whatever `LidSwitchIgnoreInhibited` says.
   #
   # A unit rather than waybar's built-in idle_inhibitor module, which kept the
   # state as a bool in the bar process and released it on every reload, mode
@@ -255,7 +257,7 @@ in
       ConditionEnvironment = "WAYLAND_DISPLAY";
     };
     Service = {
-      ExecStart = "${pkgs.wlinhibit}/bin/wlinhibit";
+      ExecStart = "${pkgs.systemd}/bin/systemd-inhibit --what=handle-lid-switch --mode=block --who=wlinhibit '--why=Keep awake' ${pkgs.wlinhibit}/bin/wlinhibit";
       # `on-failure`, not `always`: wlinhibit exits 0 on SIGTERM, so a
       # deliberate `systemctl --user stop` — which is what the toggle does —
       # must stay stopped. A crash must not: a silently released inhibitor is
