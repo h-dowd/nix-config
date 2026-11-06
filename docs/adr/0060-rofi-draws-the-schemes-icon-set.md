@@ -39,7 +39,7 @@ aliases.**
   `p.packages.icons.name`; `config.rasi` `@import`s it beside `colors`. One
   owner for the name, so it cannot drift from what GTK wears. Scheme-level and
   not per mode — the icon set is an artefact and follows `scheme.nix`, not
-  `modes.nix` ([0034](0034-colour-follows-the-mode-artefacts-do-not.md)), which
+  `modes.nix` (0034), which
   is why it is a second file rather than a line in `colors.rasi`.
 - `-show-icons` at the **call site** for drun and window, not in `config.rasi`.
   The fourteen hand-built `-dmenu` menus carry nf-md glyphs in the entry string

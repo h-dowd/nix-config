@@ -4,7 +4,7 @@
 
 Completes the walker removal, which replaced the
 menu layer with rofi and explicitly left `fsel` on `SUPER+space`. Follows
-[0034](0034-colour-follows-the-mode-artefacts-do-not.md) — the half of the
+0034 — the half of the
 system that can follow a mode switch.
 
 ## Context

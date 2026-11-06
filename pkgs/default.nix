@@ -131,49 +131,6 @@ in
     '';
 
   # ==========================================================================
-  # adwaitaShellIcons — Adwaita names the bar needs and the theme cannot give
-  # ==========================================================================
-  # TWO DIFFERENT FAILURES, one mechanism.
-  #
-  # The ladder: `battery-level-*` is a freedesktop name, so the ICON THEME
-  # answers it first — Papirus here — and Papirus draws the level as a second
-  # path at 35% opacity over a full-height body. GTK renders a symbolic icon as
-  # a MASK filled with one colour, which flattens that opacity: all eleven rungs
-  # come out as the same solid battery. Its `warning` class also repaints the low
-  # ones orange, over whatever `icon-color` says. Adwaita cuts the level out of
-  # ONE path, so the mask keeps it.
-  #
-  # The bluetooth one: `Papirus-Dark` inherits `breeze-dark,hicolor` and NOT
-  # Adwaita, so an Adwaita-only name does not resolve at all — GTK draws its
-  # missing-image glyph, a circle with a slash, on the bar. `hicolor` is in every
-  # chain, which is what makes this derivation work.
-  #
-  # Copied under `adw-`, wayle's own prefix convention for a source set, so no
-  # icon theme can shadow them and they do not follow the scheme. A missing
-  # source name fails the build here rather than falling back in silence on the
-  # bar.
-  adwaitaShellIcons =
-    prev.runCommand "adwaita-shell-icons"
-      {
-        meta.description = "Adwaita symbolics under a name no icon theme claims";
-      }
-      ''
-        src=${prev.adwaita-icon-theme}/share/icons/Adwaita/symbolic
-        dst=$out/share/icons/hicolor/scalable/status
-        mkdir -p "$dst"
-        for n in 0 10 20 30 40 50 60 70 80 90 100; do
-          cp "$src/status/battery-level-$n-symbolic.svg" \
-            "$dst/adw-battery-level-$n-symbolic.svg"
-        done
-        cp "$src/legacy/battery-empty-charging-symbolic.svg" \
-          "$dst/adw-battery-charging-symbolic.svg"
-        cp "$src/status/battery-missing-symbolic.svg" \
-          "$dst/adw-battery-missing-symbolic.svg"
-        cp "$src/status/bluetooth-acquiring-symbolic.svg" \
-          "$dst/adw-bluetooth-acquiring-symbolic.svg"
-      '';
-
-  # ==========================================================================
   # paletteCursors — the cursor set, recoloured from the palette
   # ==========================================================================
   # docs/adr/0041. catppuccin/cursors carries the Volantes art (GPL-2) as 68
@@ -574,67 +531,6 @@ in
       });
 
   # ==========================================================================
-  # noctalia-qs — breakpad does not link under nixpkgs' GCC 16 stdenv
-  # ==========================================================================
-  # nixpkgs leaves CRASH_HANDLER off, so breakpad is a build input the binary
-  # never uses, and no closure here has ever referenced it. Dropping it skips a
-  # build that cannot succeed. docs/gotchas.md → nixpkgs.
-  #
-  # The two guards are the point: filtering a list that no longer holds the item
-  # is a silent no-op, and re-enabling the crash handler would make breakpad
-  # load-bearing without changing this expression. Both are evaluation errors.
-  # The guards live inside `buildInputs` rather than wrapping the attrset:
-  # `overrideAttrs` evaluates the body to learn the attribute NAMES, so a
-  # top-level `throwIf` reading `old` is an infinite recursion
-  # (make-derivation.nix:236).
-  noctalia-qs = prev.noctalia-qs.overrideAttrs (
-    old:
-    let
-      isBreakpad = x: (x.pname or "") == "breakpad";
-    in
-    {
-      buildInputs =
-        prev.lib.throwIf (!prev.lib.any isBreakpad old.buildInputs)
-          "noctalia-qs no longer takes breakpad — drop this override"
-          (
-            prev.lib.throwIf
-              (prev.lib.any (prev.lib.hasInfix "CRASH_HANDLER") old.cmakeFlags)
-              "noctalia-qs now sets CRASH_HANDLER — breakpad is load-bearing, so fix the build rather than dropping it"
-              (prev.lib.filter (x: !isBreakpad x) old.buildInputs)
-          );
-    }
-  );
-
-  # ==========================================================================
-  # noctalia-shell — its mango backend still speaks dwl's dead flags
-  # ==========================================================================
-  # `MangoService.qml` drives mango through `mmsg -s -d <func>`, the dwl-era
-  # flag form. mango 0.16 answers `{"error":"unknown command"}` and EXITS 0, so
-  # every one of these did nothing and reported nothing — the failure this repo
-  # is named for. The launcher was the visible half: picking an app ran
-  # `CompositorService.spawn` → `MangoService.spawn` → nothing. docs/adr/0025.
-  #
-  # A patch, not a settings workaround: there are five call sites and only one
-  # is the launcher, and `mmsg dispatch spawn_shell` makes the app a child of
-  # MANGO in the session scope rather than of the shell inside
-  # `noctalia.service`, where a mode switch would kill it with the bar.
-  #
-  # `--replace-fail`, so a version bump that renames any of these is a BUILD
-  # error. The verbs are checked against mango's own function table by
-  # checks/static.sh. `-g -A` and `-s -t` are left alone deliberately — they
-  # need a different call shape, not a different spelling (docs/adr/0020).
-  # `.override`, because `overrideAttrs` alone would keep prev's noctalia-qs,
-  # the one that still pulls breakpad in.
-  noctalia-shell = (prev.noctalia-shell.override { inherit (final) noctalia-qs; }).overrideAttrs (old: {
-    postPatch = (old.postPatch or "") + ''
-      substituteInPlace Services/Compositor/MangoService.qml \
-        --replace-fail '"mmsg", "-s", "-d",' '"mmsg", "dispatch",' \
-        --replace-fail '"mmsg", "-s", "-q"' '"mmsg", "dispatch", "quit"' \
-        --replace-fail 'mmsg -s -d ' 'mmsg dispatch '
-    '';
-  });
-
-  # ==========================================================================
   # Brother MFC-L3740CDW printer driver
   # ==========================================================================
   # Unused — driverless IPP Everywhere works (printing.nix). Kept as fallback.
@@ -815,8 +711,8 @@ in
   # power-profiles-tlp — the PPD bus name, answered from TLP
   # ==========================================================================
   # TLP and power-profiles-daemon cannot both run (docs/adr/0017), so every
-  # client that speaks PPD finds nothing and renders nothing — noctalia's
-  # battery panel most visibly. This owns the name and translates.
+  # client that speaks PPD (`powerprofilesctl`, GNOME's power page) finds
+  # nothing and renders nothing. This owns the name and translates.
   # docs/adr/0026; the unit and its `--power-mode` are in modules/system/power.nix.
   #
   # `--replace-fail` on the shebang, so a rewrite of the script that drops it
@@ -848,7 +744,7 @@ in
         # bus-ACTIVATES this name at startup and gives up permanently when that
         # fails — observed: "Could not launch service …: The name is not
         # activatable", then "The PowerProfiles service will not work", after
-        # which noctalia's every profile call returns early in silence. A unit
+        # which every client's profile call returns early in silence. A unit
         # that merely happens to be running is not the same as a name dbus can
         # start. `SystemdService` is what dbus-broker uses; `Exec` is the
         # non-systemd fallback. docs/adr/0026.
@@ -880,61 +776,23 @@ in
     };
 
   # ==========================================================================
-  # lockscreen — lock the session with whichever locker the mode owns
+  # lockscreen — swaylock over a background picked from the pool
   # ==========================================================================
   # Deliberately NOT named `swaylock`. A wrapper of that name would land earlier
   # in PATH and shadow swaylock-effects, which is the exact trap that makes
   # `programs.swaylock.package = null` load-bearing. docs/gotchas.md → swaylock.
   #
   # Every lock path goes through this one name — swayidle's before-sleep, lock
-  # and 5-minute timeout, wlogout, power-menu.sh — so mode-awareness belongs
-  # here and nowhere else. docs/adr/0024.
+  # and 5-minute timeout, wlogout, power-menu.sh. docs/adr/0018.
   lockscreen = prev.writeShellApplication {
     name = "lockscreen";
-    # Absolute paths for all four: swayidle runs this from `sh -c` with a PATH
-    # that carries bash and little else, and an unqualified `sleep` or
-    # `noctalia-shell` would exit 127 under `set -e` — before the swaylock
-    # fallback below ever ran.
-    # `final.noctalia-shell`, NOT `prev.` — and this one is load-bearing rather
-    # than tidy. quickshell resolves an ipc target by the shell.qml PATH it was
-    # started from ("No running instances for …/shell.qml" is its own wording),
-    # so the unpatched derivation would look for instances of a path nothing
-    # runs, find none, and hand every unattended lock back to swaylock. It would
-    # also put two noctalia closures in the system.
+    # Absolute paths: swayidle runs this from `sh -c` with a PATH that carries
+    # bash and little else.
     runtimeInputs = [
       prev.swaylock-effects
-      final.noctalia-shell
-      prev.systemd
       prev.coreutils
     ];
     text = ''
-      # In `noctalia` mode the shell owns the lock screen, and it is already the
-      # one SUPER+Delete opens; leaving the unattended locks on swaylock made
-      # every resume look like a different machine. Ask noctalia first, then
-      # fall through — swaylock below is BOTH the fallback and the proof, since
-      # only one client may hold an `ext-session-lock-v1` lock and swaylock
-      # exits non-zero exactly when the session is already locked. So this
-      # returns with the session locked either way, which is the guarantee
-      # swayidle's sleep inhibitor is built on. docs/adr/0024.
-      mode=$(cat "''${XDG_STATE_HOME:-$HOME/.local/state}/mango/current-mode" 2>/dev/null || echo tiling)
-      if [ "$mode" = noctalia ] && systemctl --user is-active --quiet noctalia; then
-        # `ipc call` prints "Target not found." / "Function not found." and
-        # EXITS 0, so output is the only signal (docs/adr/0023).
-        out=$(noctalia-shell ipc call lockScreen lock 2>&1 || true)
-        if [ -n "$out" ]; then
-          # Not fatal: swaylock is still ahead, and stderr reaches the journal
-          # of whatever called this.
-          printf 'lockscreen: noctalia ipc call lockScreen lock: %s\n' "$out" >&2
-        else
-          # The shell raises its lock asynchronously — there is no IPC that
-          # reports the lock is up, and mango has no session-lock query. This
-          # wait therefore decides only WHICH locker wins, never whether one
-          # does: too short and swaylock takes the lock instead, which is the
-          # previous behaviour rather than an unlocked screen.
-          sleep 1
-        fi
-      fi
-
       # nullglob so an empty pool yields an empty array rather than the literal
       # glob — otherwise the fallback below never fires and swaylock is handed a
       # path with a `*` in it.

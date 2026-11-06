@@ -194,8 +194,8 @@ in
   ];
 
   # --- the PPD bus name, answered from TLP ----------------------------------
-  # Everything that speaks power-profiles-daemon — noctalia's battery panel,
-  # `powerprofilesctl`, GNOME's power page — finds no service here, because TLP
+  # Everything that speaks power-profiles-daemon — `powerprofilesctl`, GNOME's
+  # power page — finds no service here, because TLP
   # holds the ground PPD would (`services.power-profiles-daemon.enable = false`
   # above). They render nothing and say nothing. This unit owns the name and
   # answers it from `/run/tlp/last_pwr` and `power-mode`, so those clients drive

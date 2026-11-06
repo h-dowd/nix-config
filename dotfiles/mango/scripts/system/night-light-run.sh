@@ -14,8 +14,7 @@
 #
 # Sourcing lib.sh is safe from inside the unit: it only defines things, and the
 # unit's PATH (bash, coreutils, wlsunset) covers everything it runs at source
-# time. `install`/`jq` appear only inside apply_mode(), which is never called
-# here.
+# time.
 . "$HOME/.config/mango/scripts/lib.sh"
 
 DEFAULT_NIGHT_TEMP=4000

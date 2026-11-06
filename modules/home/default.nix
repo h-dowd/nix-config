@@ -52,16 +52,8 @@ in
     # change — a config with two owners fails activation.
     ./programs.nix
     ./waybar.nix
-    # The tiling mode's bar. Its own file for waybar.nix's reason — a bar's
-    # layouts are large — and it generates SIX files, none of them config.toml.
-    # docs/adr/0051.
-    ./wayle.nix
     ./dotfiles.nix
     ./theme.nix
-    # The per-mode colour sidecars kitty, foot and rofi reach through a runtime
-    # symlink. Separate from the three above because it is one MECHANISM rather
-    # than one application's config, and splitting it across them hid it.
-    ./mode-theme.nix
   ];
 
   home.username = "henry";
@@ -223,10 +215,6 @@ in
         "NIGHT_LONG=-6.26"
         "NIGHT_DAY_TEMP=6500"
       ];
-      # `always`, not `on-failure`: noctalia runs `pkill -x wlsunset` on every
-      # start, unconditionally, and systemd counts a SIGTERM as a CLEAN exit —
-      # so `on-failure` let one entry into noctalia mode end night light for the
-      # rest of the session, silently. docs/gotchas.md → night light.
       Restart = "always";
       RestartSec = 3;
     };
@@ -241,8 +229,8 @@ in
   # logind honours that lock whatever `LidSwitchIgnoreInhibited` says.
   #
   # A unit rather than waybar's built-in idle_inhibitor module, which kept the
-  # state as a bool in the bar process and released it on every reload, mode
-  # switch and layout switch — and could only ever be toggled by clicking the
+  # state as a bool in the bar process and released it on every reload and
+  # layout switch — and could only ever be toggled by clicking the
   # widget, never from a key. docs/adr/0031.
   #
   # NO [Install]. Nothing starts this at login: it is switched on by
@@ -292,38 +280,6 @@ in
       Description = "MangoWC Session Target";
       Requires = [ "graphical-session.target" ];
       After = [ "graphical-session.target" ];
-    };
-  };
-
-  # Noctalia, started only by the `noctalia` desktop mode — docs/adr/0020.
-  #
-  # A unit rather than an `exec=` line, unlike every other mode daemon, because
-  # `mmsg dispatch reload_config` re-runs every `exec=`: a pgrep guard has to be
-  # exactly right or a reload leaves two shells fighting over one layer surface,
-  # and `start`/`stop` are idempotent by construction. It also puts the failure
-  # in `systemctl --user status` instead of nowhere.
-  #
-  # No `Install`, so nothing starts it at login but noctalia/autostart.conf.
-  # `PartOf` the session target means logout stops it.
-  systemd.user.services.noctalia = {
-    Unit = {
-      Description = "Noctalia shell";
-      PartOf = [ "mango-session.target" ];
-      After = [ "mango-session.target" ];
-      # Covers the one race here: at login straight into noctalia mode this can
-      # start before universal/autostart.conf's dbus-update-activation-environment
-      # has put WAYLAND_DISPLAY in the user manager, and quickshell exits.
-      # StartLimit* belong in [Unit], not [Service] — docs/adr/0006.
-      StartLimitIntervalSec = 60;
-      StartLimitBurst = 5;
-    };
-    Service = {
-      # Without this its lock screen probes and picks /etc/pam.d/login; the
-      # swaylock service is the one declared for this job — docs/adr/0023.
-      Environment = [ "NOCTALIA_PAM_SERVICE=swaylock" ];
-      ExecStart = "${pkgs.noctalia-shell}/bin/noctalia-shell";
-      Restart = "on-failure";
-      RestartSec = 2;
     };
   };
 

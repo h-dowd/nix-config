@@ -1,6 +1,8 @@
 # 0004 — Mode scripts own theming; no `active-theme` indirection
 
-**Status:** Accepted (2026-07-30)
+**Status:** Accepted (2026-07-30). The mode scripts are gone since
+[0061](0061-one-desktop-noctalia-and-wayle-removed.md); the clause that stands is
+the 2026-07-30 amendment: Nix owns the GTK theme.
 
 ## Context
 

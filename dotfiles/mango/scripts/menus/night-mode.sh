@@ -33,8 +33,7 @@ is_warming() {
 # and its interval is `once`, so without this the module ran at bar start and
 # never again: a toggle changed the screen and left the bar stale.
 #
-# `|| true` because the same script runs in noctalia mode, where the pkill
-# matches nothing. Plain `waybar`, not `bin/waybar` — nixpkgs wraps it so `comm`
+# `|| true` because with no bar running the pkill matches nothing. Plain `waybar`, not `bin/waybar` — nixpkgs wraps it so `comm`
 # is `.waybar-wrapped`, and it is invoked bare so its cmdline carries no path.
 # docs/adr/0054.
 push_bar() {

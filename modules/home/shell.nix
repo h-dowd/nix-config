@@ -69,8 +69,8 @@
     cleantmp = "~/.scripts/clean_tmp";
     lidaction = "~/.scripts/toggle_lid_action";
 
-    # ~/.config/mango/scripts is deliberately off PATH — 28 files with names
-    # like `mode.sh` would land in completion. Aliases for the two typed by
+    # ~/.config/mango/scripts is deliberately off PATH — 31 files with names
+    # like `lib.sh` would land in completion. Aliases for the two typed by
     # hand are cheaper. Both need a `rebuild` first: the tree is a store path.
     waybar-reload = "~/.config/mango/scripts/waybar/waybar-restart.sh";
     mango-reload = "~/.config/mango/scripts/reload.sh";

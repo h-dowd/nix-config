@@ -1,15 +1,12 @@
 /* This file is a FRAGMENT, and it is the MIDDLE of the generated theme. The
    `@name` metadata block is PREPENDED and the `:root` colour block and
-   code-block syntax rules are APPENDED, both by modules/home/dotfiles.nix, per
-   desktop mode (docs/adr/0034) — edit modules/home/modes.nix and the theme file
-   it names, then rebuild. There is no hex in this file, and adding some would
-   fail `checks/static.sh`.
+   code-block syntax rules are APPENDED, both by modules/home/dotfiles.nix —
+   edit the theme file modules/home/scheme.nix names, then rebuild. There is no
+   hex in this file, and adding some would fail `checks/static.sh`.
 
    The metadata is generated rather than written here because `@name` is what
    Equibop DISPLAYS, and a name is not a colour: it read `Catppuccin Mocha`
-   through gruvbox and nord both, which is the same failure docs/gotchas.md
-   records for the theme's filename. Three per-mode files sharing one hardcoded
-   name would also be indistinguishable in Equibop's own theme list.
+   through gruvbox and nord both.
 
    The `@import` has to stay at the top of this file: CSS requires every
    `@import` to precede all other RULES, which is why the colours are appended

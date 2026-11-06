@@ -20,8 +20,8 @@
       # the patched-in glyphs keep their own metrics.
       nerd-fonts.symbols-only
 
-      # The bar's text, and wayle's. It left with docs/adr/0058 and came back
-      # with docs/adr/0059: it is the look the bar is wanted to have, and no
+      # The bar's text. It left with docs/adr/0058 and came back with
+      # docs/adr/0059: it is the look the bar is wanted to have, and no
       # other surface asks for it.
       nerd-fonts._3270
 

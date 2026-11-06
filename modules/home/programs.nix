@@ -67,20 +67,41 @@ in
       scrollback_lines = 10000;
       enable_audio_bell = "no";
 
-      # NO COLOURS HERE. Every one of them — the sixteen ANSI slots, the
-      # background/foreground/cursor/selection set and the tab bar's five — is
-      # in modules/home/mode-theme.nix, generated per desktop mode and reached
-      # through the `include` in extraConfig below. docs/adr/0034.
-      #
-      # `inactive_tab_foreground` was `#d5c4a1` here, a literal, and it survived
-      # gruvbox -> Catppuccin -> gruvbox untouched. Nothing caught it: the drift
-      # ceiling greps for hexes the CURRENT themes declare, and an orphan from a
-      # retired scheme matches none of them. It is `subtext` now, which is what
-      # the palette calls dimmed/inactive text. docs/gotchas.md -> Theming.
+      # Colours. `inactive_tab_foreground` was `#d5c4a1` here, a literal, and it
+      # survived two scheme changes: the drift ceiling greps for hexes the
+      # current themes declare, and an orphan from a retired scheme matches
+      # none. docs/gotchas.md -> Theming.
+      color0 = "#${p.black}";
+      color1 = "#${p.red}";
+      color2 = "#${p.green}";
+      color3 = "#${p.yellow}";
+      color4 = "#${p.blue}";
+      color5 = "#${p.magenta}";
+      color6 = "#${p.cyan}";
+      color7 = "#${p.white}";
+      color8 = "#${p.brBlack}";
+      color9 = "#${p.brRed}";
+      color10 = "#${p.brGreen}";
+      color11 = "#${p.brYellow}";
+      color12 = "#${p.brBlue}";
+      color13 = "#${p.brMagenta}";
+      color14 = "#${p.brCyan}";
+      color15 = "#${p.brWhite}";
+      background = "#${p.bg}";
+      foreground = "#${p.fg}";
+      cursor = "#${p.fg}";
+      cursor_text_color = "#${p.bg}";
+      selection_foreground = "#${p.bg}";
+      selection_background = "#${p.selBg}";
+      tab_bar_margin_color = "#${p.bg}";
+      tab_bar_background = "#${p.bg}";
+      active_tab_foreground = "#${p.bg}";
+      active_tab_background = "#${p.brMagenta}";
+      inactive_tab_foreground = "#${p.subtext}";
+      inactive_tab_background = "#${p.bg}";
 
       # Tab bar (was tabs.conf, renamed from dank-tabs.conf when DMS was
       # dropped — the name was kept deliberately, the file need not be).
-      # Shape only; the five colour keys moved with the rest.
       tab_bar_edge = "top";
       tab_bar_style = "powerline";
       tab_powerline_style = "slanted";
@@ -96,21 +117,6 @@ in
       tab_title_template = ''"{fmt.fg.red}{bell_symbol}{activity_symbol}{fmt.fg.tab}{title[:30]}{title[30:] and '…'} [{index}]"'';
       active_tab_title_template = ''"{fmt.fg.red}{bell_symbol}{activity_symbol}{fmt.fg.tab}{title[:30]}{title[30:] and '…'} [{index}]"'';
     };
-
-    # The colour indirection. `include` is resolved relative to kitty.conf's own
-    # directory, and `current-theme.conf` there is a RUNTIME SYMLINK that
-    # apply_theme re-points on every mode switch — so it is not declared as an
-    # xdg.configFile anywhere, and must not be.
-    #
-    # A missing include is SILENT here: kitty logs nothing and every colour
-    # falls back to its built-in default, which is black on black for the first
-    # slot (verified 2026-08-19). rofi is silent too; foot is the loud one.
-    #
-    # LAST, after `settings`, because kitty takes the last definition of a key.
-    # Nothing above sets a colour any more, so nothing is being overridden — but
-    # a colour added back to `settings` would silently win from up there, and
-    # this ordering makes that impossible instead.
-    extraConfig = "include current-theme.conf";
   };
 
   # foot. The `[colors-dark]` section name is carried over verbatim from
@@ -129,24 +135,6 @@ in
         pad = "20x15";
         bold-text-in-bright = "no";
         gamma-correct-blending = "no";
-
-        # The colour indirection. foot requires an absolute path or a leading
-        # `~/`, and `themes/noctalia` there is a RUNTIME SYMLINK apply_theme
-        # re-points per mode — not an xdg.configFile, and it must not become
-        # one. The imported file has its own section scope, so it carries its
-        # own `[colors-dark]` and nothing leaks back into this one.
-        #
-        # foot is the one of the three that FAILS LOUDLY: a missing include is
-        # `failed to open` on stderr and exit 230, so foot does not start at
-        # all. Verified 2026-08-19, and it is the reverse of kitty and rofi —
-        # docs/gotchas.md -> Theming. That is why mode-theme.nix seeds the link
-        # at activation rather than leaving it to the first mode switch.
-        #
-        # The name is `noctalia` in every mode, holding whatever that mode
-        # wears. That is not a leftover: noctalia's own foot template `sed -i`s
-        # foot.ini unless it greps `include.*noctalia`, and foot.ini is a
-        # read-only store symlink. See modules/home/mode-theme.nix.
-        include = "~/.config/foot/themes/noctalia";
       };
 
       scrollback.lines = 10000;
@@ -156,8 +144,29 @@ in
         beam-thickness = "1.5";
       };
 
-      # NO `colors-dark` HERE — it moved to modules/home/mode-theme.nix, per
-      # mode, and arrives through the `include` above. docs/adr/0034.
+      # `[colors-dark]`, the section foot 1.27 reads by default.
+      colors-dark = {
+        foreground = p.fg;
+        background = p.bg;
+        selection-foreground = p.fg;
+        selection-background = p.selBg;
+        regular0 = p.black;
+        regular1 = p.red;
+        regular2 = p.green;
+        regular3 = p.yellow;
+        regular4 = p.blue;
+        regular5 = p.magenta;
+        regular6 = p.cyan;
+        regular7 = p.white;
+        bright0 = p.brBlack;
+        bright1 = p.brRed;
+        bright2 = p.brGreen;
+        bright3 = p.brYellow;
+        bright4 = p.brBlue;
+        bright5 = p.brMagenta;
+        bright6 = p.brCyan;
+        bright7 = p.brWhite;
+      };
 
       key-bindings = {
         scrollback-up-page = "Page_Up";
@@ -379,17 +388,37 @@ in
     };
   };
 
-  # ncspot's theme is per mode since docs/adr/0034, so `config.toml` is a
-  # runtime symlink apply_theme() re-points; the files are in ./mode-theme.nix.
-  #
-  # `settings = { }` is LOAD-BEARING, not leftover: the module wraps its
-  # `xdg.configFile` in `mkIf (cfg.settings != { })`, so an empty set installs
-  # the package and claims no path. One value here re-claims it and breaks
-  # activation. docs/gotchas.md -> Theming.
+  # Drawn entirely from `muted`, and asserted so. `highlight_fg` / `error_fg`,
+  # not `highlight_bg` / `error` — ncspot drops keys it does not know, silently.
   programs.ncspot = {
     enable = true;
-    settings = { };
+    settings.theme =
+      let
+        m = p.muted;
+      in
+      {
+        background = "#${m.bg}";
+        primary = "#${m.fg}";
+        secondary = "#${m.dim}";
+        title = "#${m.accent}";
+        playing = "#${m.ok}";
+        playing_selected = "#${m.ok}";
+        playing_bg = "#${m.surface}";
+        highlight = "#${m.overlay}";
+        highlight_fg = "#${m.fg}";
+        error_bg = "#${m.err}";
+        error_fg = "#${m.fg}";
+        statusbar_progress = "#${m.accent}";
+        statusbar_progress_bg = "#${m.overlay}";
+        statusbar = "#${m.fg}";
+        statusbar_bg = "#${m.surface}";
+        cmdline = "#${m.fg}";
+        cmdline_bg = "#${m.surface}";
+        search_match = "#${m.accent}";
+        border = "#${m.overlay}";
+      };
   };
+
 
   # imv. The palette's lightest foreground as the background, so black SVGs and
   # icons stay visible.
@@ -407,9 +436,6 @@ in
   # execs swaylock, so they all still read this file. It replaces the per-mode
   # per-mode mango/*/swaylock.conf files, and an untracked hand-written
   # ~/.config/swaylock/config that had been quietly supplying the theme.
-  #
-  # In `noctalia` mode the wrapper hands the lock to noctalia first and this is
-  # the fallback (docs/adr/0024); in tiling it is still the lock screen.
   #
   # `image` is deliberately NOT set here: the wrapper passes `-i` per lock so
   # the pattern varies (docs/adr/0018). `color` stays as the fallback for when

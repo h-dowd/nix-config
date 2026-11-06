@@ -11,8 +11,8 @@
 #            middle-click   (docs/adr/0056)
 #   open     right-click    hands the coordinates to a browser. No network of
 #                           its own, and no reader — it renders nothing.
-#   panel    SUPER+CTRL+w,  the detailed reading, in rofi. Replaced wayle's
-#            bar left-click  `dropdown:weather` on 2026-08-26 — docs/adr/0050.
+#   panel    SUPER+CTRL+w,  the detailed reading, in rofi — docs/adr/0050.
+#            bar left-click
 #
 # Three classes, because a served cache that does not say it is one is
 # yesterday's temperature in today's font: `ok`, `stale` (greyed, with its age)
@@ -45,8 +45,7 @@ if [ -r "$LOCATION_ENV" ]; then
 	. "$LOCATION_ENV"
 fi
 
-# One host, and it is the one answering the question — not noctalia's geocode
-# indirection. docs/adr/0038.
+# One host, and it is the one answering the question. docs/adr/0038.
 
 # nf-md, like every other glyph the bar prints. These were nf-weather (U+E3xx)
 # — a whole second pack, at a different stroke weight, in the module sitting
@@ -525,14 +524,11 @@ do_refresh() {
 				"No coordinates — weather-location.env is not in the generation"
 		fi
 	fi
-	# THE BAR PUSH IS BACK. waybar takes RTMIN+n and custom/weather declares
-	# `signal = 13`; wayle took no signal, so this line was removed on
-	# 2026-08-24 and the refresh was invisible until the next 300 s poll.
-	# docs/adr/0051.
+	# custom/weather declares `signal = 13`; without this the refresh is
+	# invisible until the next 300 s poll.
 	#
-	# `|| true` because this also runs in noctalia mode, where there is no
-	# waybar: pkill matching nothing returns 1, and a refresh that worked would
-	# exit non-zero. That is docs/adr/0047's finding, one script over.
+	# `|| true` because with no bar running pkill matches nothing and returns 1,
+	# and a refresh that worked would exit non-zero. docs/adr/0047.
 	pkill -RTMIN+13 waybar 2>/dev/null || true
 }
 
@@ -564,11 +560,7 @@ do_open() {
 
 # ── The panel ─────────────────────────────────────────────────────────────
 #
-# rofi, not a wayle dropdown. `dropdown:weather` is one of ten types wayle
-# defines internally and a script cannot add an eleventh, so the detailed
-# reading was the one surface on this machine drawn by something other than the
-# menus — and the bar click was the only way in, since com.wayle.Shell1 exposes
-# BarShow/BarHide/BarToggle and nothing that opens a dropdown. docs/adr/0050.
+# rofi, so a key can open it as well as the bar click. docs/adr/0050.
 #
 # `status`'s freshness ladder rather than `read`'s: this is a foreground surface
 # somebody just asked for, so it can afford the socket the control-centre row

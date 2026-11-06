@@ -74,6 +74,5 @@ else
 	fi
 fi
 
-# No `pkill -RTMIN+10 waybar` here any more: waybar is retired and wayle takes no
-# signal, so that line matched nothing and returned 1 — the script's own exit
-# status, for a connect that worked. custom-vpn polls at 5 s. docs/adr/0056.
+# No `pkill -RTMIN+10 waybar` here: custom/vpn polls at 5 s. A bare pkill that
+# matches nothing would also become this script's exit status. docs/adr/0056.

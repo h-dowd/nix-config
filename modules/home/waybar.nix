@@ -106,8 +106,7 @@ let
     "custom-minimized.some" = "view-restore-symbolic";
   };
 
-  # Papirus's battery ladder — the icons wayle wore, which were Adwaita's.
-  # docs/adr/0052.
+  # Papirus's battery ladder. docs/adr/0052.
   #
   # `at` is a capacity ceiling: waybar picks the tightest class whose value is
   # >= capacity (waybar-states(5)), so 44% wears `l50`. The bottom two are 5 and
@@ -267,7 +266,7 @@ let
     mpris = {
       format = "{status_icon} {dynamic}";
       # Three keys, and only one of them was set. All three were found by
-      # rendering this module beside wayle's; none of it is guesswork.
+      # rendering this module; none of it is guesswork.
       #
       # `dynamic-order` is which fields render. Unwritten it defaults to title,
       # artist, album and position, so the bar showed `The Yogscast
@@ -282,9 +281,8 @@ let
       # Reordering `dynamic-importance-order` does not change it; tried both
       # ways, same output.
       #
-      # `max-length` is the one that behaves like wayle's `label-max-length`:
-      # It truncates the composed string with an ellipsis. 27 = the status icon,
-      # its space, and wayle's 25.
+      # `max-length` truncates the composed string with an ellipsis. 27 = the
+      # status icon, its space, and 25.
       dynamic-len = 100;
       max-length = 27;
       dynamic-order = [
@@ -305,8 +303,7 @@ let
       # expose one MPRIS player per playing tab. On this machine it exposes one
       # (`playerctl -l` → a single `firefox.instance_*`), and firefox is the only
       # player running, so the ignore meant the media module rendered nothing,
-      # always. wayle's `media` has no such list, which is why that bar showed a
-      # track where this one showed empty bar. docs/adr/0051.
+      # always. docs/adr/0051.
       ignored-players = [ ];
       # The window this module is reporting, whichever player that is. It was
       # `scratch-toggle.sh Spotify spotify` — one player, hardcoded, so a video
@@ -461,20 +458,16 @@ let
       tooltip-format = "{desc}";
       on-click = "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle";
       on-click-right = "${s}/menus/volume-menu.sh";
-      # Reads backwards on purpose. `trackpad_natural_scrolling=1` in
-      # mango/universal/settings.conf inverts the axis before waybar sees it,
-      # so fingers-UP arrives as on-scroll-DOWN — this is what makes swiping up
-      # raise the volume. `-l 1.5` is a ceiling and belongs on the increase.
-      on-scroll-up = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-";
-      on-scroll-down = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%+ -l 1.5";
+      # `-l 1.5` is a ceiling and belongs on the increase.
+      on-scroll-up = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%+ -l 1.5";
+      on-scroll-down = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-";
       format-icons = {
         headphone = "󰋋";
         headset = "󰋋";
         # One icon, not a three-step ladder — `network` and `bluetooth` name a
         # state and let the text carry the number, and the volume percentage is
         # already right beside this. A one-element array is how waybar says "the
-        # same at every level"; wayle's `level-icons` took a single-element list
-        # for the same reason. docs/adr/0051.
+        # same at every level". docs/adr/0051.
         default = [ "󰕾" ];
       };
     };
@@ -487,10 +480,8 @@ let
       # for the reason the volume ladder lost its: the percentage is in the text
       # and the icon says which module this is. docs/adr/0051.
       format-icons = [ "󰃠" ];
-      # Inverted for the same reason as pulseaudio above — natural scrolling
-      # delivers fingers-up as on-scroll-down.
-      on-scroll-up = "brightnessctl --class=backlight set 2%-";
-      on-scroll-down = "brightnessctl --class=backlight set 2%+";
+      on-scroll-up = "brightnessctl --class=backlight set 2%+";
+      on-scroll-down = "brightnessctl --class=backlight set 2%-";
     };
 
     "custom/night-mode" = {
@@ -543,12 +534,8 @@ let
       on-click-right = "${s}/system/power-profile-cycle.sh toggle-fanless";
     };
 
-    # The control centre, as a bar button. It runs menus/shell.sh rather than
-    # control-center.sh directly, so the button and SUPER+C go through the one
-    # router that knows which surface a mode has — in noctalia mode this reaches
-    # noctalia's own control centre instead (docs/adr/0023, docs/adr/0033). A
-    # bind or an on-click naming the implementation is a dead key in the other
-    # mode that still exits 0.
+    # The control centre, as a bar button. Through menus/shell.sh, the same
+    # action SUPER+C runs. docs/adr/0033.
     #
     # No `exec`: there is nothing to report. A custom module with only a format
     # is a static button, which is why this one cannot render empty the way the
@@ -902,8 +889,7 @@ let
       ];
       # No `custom/window` tweak. It was 80 here — "more room on the right, so
       # the title gets more characters" — which was true at 11px and is not at
-      # 14px. wayle carried one cap for all three layouts and this is that.
-      # docs/adr/0051.
+      # 14px. One cap for all three layouts. docs/adr/0051.
     };
 
   };

@@ -192,12 +192,12 @@ the change having had no effect.
 `pkgs/default.nix` is the one overlay, a function of `final` and `prev`:
 
 ```nix
-noctalia-shell = prev.noctalia-shell.overrideAttrs (old: { … });
+paletteGtk = (prev.colloid-gtk-theme.override { … }).overrideAttrs (old: { … });
 ```
 
 `prev` is the package before this overlay; `final` is the package after every
 overlay has applied. Use `prev` to build on the original, as above, where
-noctalia's mango backend is patched. Use `final` when one package must pick up
+Colloid is compiled against this repo's palette. Use `final` when one package must pick up
 another package's override, or it gets the unpatched copy with nothing said.
 
 `flake.nix` deliberately builds its lint tooling without the overlay: a lint
@@ -208,9 +208,8 @@ result must not depend on a package override.
 Everything above happens at build time. Nothing evaluated then can react to
 anything that happens afterwards.
 
-- A generated artefact cannot follow a runtime mode switch, which is the entire
-  reason `scheme.nix` and `modes.nix` are two files (`docs/adr/0034`). Colour can
-  follow a mode because a script re-points a symlink; a built GTK theme cannot.
+- A generated artefact cannot change at runtime. A built GTK theme follows a
+  scheme change only through a rebuild.
 - A systemd unit's `Environment = [ "PATH=…" ]` is its entire PATH; there is no
   ambient environment to fall back on. Omitting `pkgs.bash` is how the wlsunset
   runner's `env bash` shebang exited 127.

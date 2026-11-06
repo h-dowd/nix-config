@@ -2,8 +2,7 @@
 """Serve the power-profiles-daemon D-Bus API from TLP.
 
 TLP and power-profiles-daemon cannot both run (docs/adr/0017), so every client
-that speaks PPD -- noctalia's battery panel, GNOME's power settings,
-`powerprofilesctl` -- finds no service and shows nothing, in silence. This
+that speaks PPD -- GNOME's power settings, `powerprofilesctl` -- finds no service and shows nothing, in silence. This
 daemon owns the PPD bus name and answers it from TLP's own state, so those
 clients read and set the same three profiles the bar and SUPER+SHIFT+P do.
 

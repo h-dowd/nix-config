@@ -1,8 +1,9 @@
 # 0031 — The idle inhibitor is a unit, not a bool in the bar
 
-**Status:** Accepted (2026-08-18)
+**Status:** Accepted (2026-08-18). The noctalia handover is gone with
+[0061](0061-one-desktop-noctalia-and-wayle-removed.md); the unit stands.
 
-Extends [0023](0023-noctalia-owns-its-own-actions.md) (noctalia owns its own
+Extends 0023 (noctalia owns its own
 actions): `keep-awake` was the last `fb=none` row in `shell.sh`, and this is
 what gave it a fallback.
 

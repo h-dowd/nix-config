@@ -304,8 +304,8 @@ window#waybar.bottom #workspaces button.active {
 }
 
 /* An empty module still draws `.module`'s padding — 10px of dead bar in the
-   resting state, which on the wayle bar was reported as the neighbouring
-   module's spacing. minimized.sh emits the class so this can collapse it; the
+   resting state, which reads as the neighbouring module's spacing.
+   minimized.sh emits the class so this can collapse it; the
    same rule `#taskbar.empty` carried, for the same reason.
 
    No `background-image: none` needed: icons.css attaches the icon to `.some`,
@@ -349,8 +349,7 @@ window#waybar.bottom #workspaces button.active {
 /* NO COLOUR OR SIZE, deliberately. It carried `color: @subtext; font-size:
    11px` until 2026-08-26 — dimmer AND three points smaller than every other
    module, on the one label that is a sentence rather than a number. It takes
-   @text at the bar's own size from the shared rules above, which is what
-   wayle's `window-title` wore and the reason that bar read better here.
+   @text at the bar's own size from the shared rules above.
 
    The cap moved with it: `custom/window`'s max-length is 45 rather than 60 in
    modules/home/waybar.nix, because the same characters are a third wider now.
@@ -599,8 +598,7 @@ window#waybar.bottom #workspaces button.active {
 /* ── Battery ──────────────────────────────────────────────────────── */
 
 /* The icon is Papirus's `battery-level-*-symbolic` ladder, one rule per rung in
-   the generated icons.css — wayle's battery, from the theme rather than from a
-   font. Geometry only here; the same 16px/22px pair as #custom-window, and it
+   the generated icons.css — from the theme rather than from a font. Geometry only here; the same 16px/22px pair as #custom-window, and it
    moves with them. docs/adr/0052. */
 #battery {
     background-repeat: no-repeat;

@@ -38,11 +38,9 @@ is_on() {
 
 # custom/idle-inhibitor declares `signal = 12` and polls every 30 s, so without
 # this a key press changed the inhibitor and left the bar showing the old glyph
-# for up to half a minute, which reads as the key not working. The push was
-# removed when waybar was retired for wayle and docs/adr/0051 did not restore it.
+# for up to half a minute, which reads as the key not working.
 #
-# `|| true` because the same script runs in noctalia mode, where the pkill
-# matches nothing. docs/adr/0056.
+# `|| true` because with no bar running the pkill matches nothing. docs/adr/0056.
 push_bar() {
 	pkill -RTMIN+12 waybar 2>/dev/null || true
 }

@@ -187,6 +187,7 @@
       equibop
       teams-for-linux
       bitwarden-desktop
+      _1password-gui # attr names cannot start with a digit; nixpkgs prefixes `_`
       rbw # rofi-rbw (SUPER+p) is a front-end over this; without it the key opens an empty list
       pinentry-qt # rbw's config.json asks for "pinentry", which every variant provides
       warpinator
@@ -233,6 +234,7 @@
       dsearch
       weathr
       efibootmgr
+      impression # ISO-to-USB writer, in place of Rufus (Windows-only)
 
       # --- Desktop utilities --------------------------------------------------
       pcmanfm

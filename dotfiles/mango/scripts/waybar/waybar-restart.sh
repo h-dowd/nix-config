@@ -1,29 +1,15 @@
 #!/usr/bin/env bash
-# Restarts waybar from the current desktop mode, layout and position state.
+# Restarts waybar from the current layout and position state.
 #
-# Called by desktop-mode.sh, waybar-layout.sh, waybar-position.sh, and by the
-# `exec=` line in each mode's autostart.conf — which fires both at login and on
-# every `mmsg dispatch reload_config`, so a reload also re-reads all three
-# state files. This is the single place that knows how the three combine.
+# Called by waybar-layout.sh, waybar-position.sh, and by the `exec=` line in
+# universal/autostart.conf — which fires both at login and on every
+# `mmsg dispatch reload_config`, so a reload also re-reads both state files. This is the single place that knows how the three combine.
 #
 # It only SELECTS a file. Every (layout, position) pair is generated as its own
 # config by modules/home/waybar.nix; this script used to rewrite the JSON with
 # `sed -E` into a temp copy instead, which is why it was four times this long
 # and needed a `margin-swap` placeholder to stop the swap undoing itself.
 . "$HOME/.config/mango/scripts/lib.sh"
-
-# noctalia mode has its own bar. Every caller below would otherwise start waybar
-# on top of it — including the two pickers, whose own guards fire before this
-# one. Kill rather than merely return: this is also the path that a switch INTO
-# noctalia takes, so leaving a stale bar up would be the visible failure.
-#
-# `mode_has_bar`, `bar_position` and `bar_layout` are lib.sh's names since the
-# bar was wayle's — the state outlives whichever program draws it, which is why
-# coming back costs no state reset. docs/adr/0051.
-if ! mode_has_bar; then
-	pkill waybar
-	exit 0
-fi
 
 POSITION=$(bar_position)
 LAYOUT=$(bar_layout)

@@ -248,22 +248,18 @@ before the override is applied.
 re-lock moved the default stdenv to GCC 16.2, and `breakpad` 2024.02.16 no longer
 links under it: `undefined reference to vtable for
 google_breakpad::FastSourceLineResolver::Module`. Hydra has not built it either,
-so there is nothing to substitute, and every path to it runs through
-`noctalia-shell → noctalia-qs → breakpad`. nixpkgs leaves `CRASH_HANDLER` off, so
-the binary never used breakpad — the running closure has never referenced it. The
-overlay filters it out of `noctalia-qs.buildInputs`.
+so there is nothing to substitute. It reached the system through
+`noctalia-shell → noctalia-qs → breakpad`, a build input the binary never used;
+the overlay filtered it out until noctalia was removed (`docs/adr/0061`).
 
-Two details cost an hour between them. `prev.noctalia-shell.overrideAttrs` keeps
-prev's `noctalia-qs`, so overriding `noctalia-qs` alone changes nothing that
-reaches the system; it needs `.override { inherit (final) noctalia-qs; }` first.
-And the guards cannot wrap the attrset `overrideAttrs` returns — the attribute
-*names* are forced to build the fixpoint, so a top-level `throwIf` reading `old`
-is an infinite recursion reported at `make-derivation.nix:236`. They go inside
-the `buildInputs` value instead.
-
-Filtering a list that no longer holds the item passes by doing nothing, which is
-why the override throws if breakpad is absent, and throws again if a future
-version turns `CRASH_HANDLER` on and makes it load-bearing.
+Two details from that override hold for any other. `prev.A.overrideAttrs` keeps
+prev's dependency `B`, so overriding `B` alone changes nothing that reaches the
+system; it needs `.override { inherit (final) B; }` first. And a guard cannot
+wrap the attrset `overrideAttrs` returns — the attribute *names* are forced to
+build the fixpoint, so a top-level `throwIf` reading `old` is an infinite
+recursion reported at `make-derivation.nix:236`. It goes inside the attribute's
+value instead. Filtering a list that no longer holds the item passes by doing
+nothing, so such a filter wants a guard that throws when the item is absent.
 
 `rstudio` 2026.09.0 broke in the same bump and is commented out in
 `modules/home/packages.nix` until upstream builds again: `undefined reference to
@@ -355,8 +351,8 @@ and `gtk-interface-color-scheme`). It is `journalctl -t mango` now.
 ### A script committed 644 is a dead key
 
 **Nix preserves the mode bit, so a `bind=` pointing at a non-executable script
-does nothing and exits 0.** Found on 2026-08-14 while adding `notify.sh` for the
-noctalia mode: the file was written without `chmod +x`, arrived in the store as
+does nothing and exits 0.** Found on 2026-08-14 while adding `notify.sh`: the
+file was written without `chmod +x`, arrived in the store as
 `-r--r--r--`, and `CTRL+ALT+\` silently stopped toggling notifications. Nothing
 logged, and the file is present and correctly linked in `~/.config` — the same
 tell as the section below.
@@ -372,9 +368,8 @@ the build.
 
 ### `swaync-client` against a masked unit exits 0
 
-swaync is the tiling mode's daemon and is not started in noctalia mode; between
-2026-08-24 and 2026-08-27 it was started in neither, and its unit is masked on
-top of that (`docs/adr/0051`). `swaync-client -D -sw` then prints
+Between 2026-08-24 and 2026-08-27 swaync was not started, and its unit is masked
+on top of that (`docs/adr/0051`). `swaync-client -D -sw` then prints
 
 ```
 GDBus.Error:org.freedesktop.DBus.Error.NameHasNoOwner: Could not activate remote
@@ -386,207 +381,8 @@ on **stderr** and **exits 0**. Three keys (`CTRL+ALT+\`, `CTRL+ALT+BackSpace`,
 rows rendered `?`, which means "I could not ask" and is correct, and the keys
 reported success.
 
-The daemon is `wayle notify` in tiling and noctalia's own IPC in noctalia.
-`checks/static.sh` now fails on any script naming `swaync-client`.
+`checks/static.sh` asserts that `universal/autostart.conf` starts swaync.
 `docs/adr/0047`.
-
-### noctalia and swaync cannot both run
-
-**The second claimant of `org.freedesktop.Notifications` does not error — it
-just never receives a notification.** noctalia-shell is a notification daemon as
-well as a bar, so `noctalia/autostart.conf` kills swaync and does not restart it,
-and `tiling/` restarts swaync and stops the noctalia unit. ADR 0005 is the
-general rule; ADR 0020 is this instance.
-
-Verify by ownership, never by "it started": `busctl --user status
-org.freedesktop.Notifications` names the owning PID. `notify-send test` then
-identifies which one drew it.
-
-### The noctalia bar does not appear, and nothing says why
-
-**Two failures stack, and the second one hides the first.** Seen 2026-08-15
-after switching tiling → noctalia → tiling → noctalia: the second entry produced
-no bar at all.
-
-The crash is `Failed to create wl_display (No such file or directory)` followed
-by Qt's `no Qt platform plugin could be initialized` and `SIGABRT`, ~700 ms in.
-It means the **systemd user manager's** `WAYLAND_DISPLAY` names a socket that is
-not there — the manager has its own copy of the environment, published once by
-`dbus-update-activation-environment --systemd --all` in
-`universal/autostart.conf`, and it does not track the session afterwards.
-Compare the two directly; they are supposed to agree:
-
-```sh
-systemctl --user show-environment | grep -E 'WAYLAND_DISPLAY|^DISPLAY|MANGO'
-printf '%s %s %s\n' "$WAYLAND_DISPLAY" "$DISPLAY" "$MANGO_INSTANCE_SIGNATURE"
-# repair, from inside the session:
-dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY MANGO_INSTANCE_SIGNATURE
-```
-
-⚠️ **Running a nested mango is how the environment goes stale.** The nested
-instance runs the live `universal/autostart.conf`, whose first line republishes
-*its* `WAYLAND_DISPLAY` into the user manager; killing it then leaves the
-manager pointing at a socket that no longer exists, and every user unit started
-afterwards connects to nothing. This is the same trap as the config paths above,
-one layer further out — strip the `autostart.conf` sources from any test config.
-
-**Then the unit wedges, and that is what makes it look intermittent.** Five
-crashes inside `StartLimitIntervalSec` leave it `failed` with
-`start-limit-hit`; after that `systemctl --user start` refuses with "attempted
-too often" and exits 1 — but an `exec=` line in an autostart has no reader for
-that, so the mode switch reports success and produces nothing. So **fixing the
-environment is not enough**: the unit stays wedged until a `reset-failed`.
-`scripts/modes/noctalia-start.sh` now does that on every entry into the mode,
-waits for the unit to be up *and stay* up, and restores swaync with a
-`notify-send` if it does not — losing the bar and the notification daemon at
-once is otherwise completely silent.
-
-### noctalia's workspace widget is empty, and the shell says so once
-
-**mango advertises no dwl IPC, so noctalia's Workspace and ActiveWindow widgets
-render nothing** — and the Workspace widget is the centre of its bar. The shell
-picks the right backend and reports it (`MangoService Initializing MangoWC/DWL
-compositor integration (DWL protocol)`), which looks like success; every path in
-that backend is then guarded on `DwlIpc.available`, which is false forever.
-quickshell probes for the Wayland global `zdwl_ipc_manager_v2`; mango 0.16.0
-creates only `wlr_*` globals, and `mmsg`'s JSON socket is a different interface
-that noctalia uses for two unrelated calls. One line at startup is the whole
-tell:
-
-```sh
-journalctl --user -u noctalia | grep 'DWL is not available'
-```
-
-**Read this as a method, not a fact about one widget.** `docs/adr/0020` recorded
-the integration as working because `MangoService.qml` exists and is selected —
-a file's existence stood in for a running system, in the one repo whose first
-rule is that those look identical. A compositor integration is only confirmed by
-watching the widget change on a tag switch.
-
-### `noctalia-shell ipc call` exits 0 when the name is wrong
-
-**`Target not found.` and `Function not found.` are printed, and the status is
-0.** A successful void call prints nothing. So **output is the signal** and the
-exit status carries no information — the same shape as the dwl-era `mmsg -s -d` that
-broke five scripts here. Test a call by capturing it, never by `&&`:
-
-```sh
-out=$(noctalia-shell ipc call launcher toggle 2>&1); [ -z "$out" ] || echo "FAILED: $out"
-noctalia-shell ipc show   # the authoritative list of targets and functions
-```
-
-`checks/static.sh` pairs every call in `scripts/menus/shell.sh` against the
-`IpcHandler` blocks in the shipped QML, matching the function *inside* its own
-target — `dock clear` would otherwise pass, because `notifications` declares
-`clear`.
-
-**Its logout is inert on this machine.** `MangoService.logout()` runs
-`mmsg -s -q`, the flag form mango answers with `{"error":"unknown command"}` and
-exit 0. The session menu's logout button is disabled in `settings-pinned.json`
-for that reason — a missing button beats one that silently does nothing.
-
-### noctalia's whole mango backend spoke dwl, so the launcher did nothing
-
-`logout()` above was not the only one. **Five calls in `MangoService.qml` used
-the `mmsg -s -d <func>` flag form**, including `spawn()` — which is what
-`ApplicationsProvider` reaches through `CompositorService.spawn()`, so **picking
-an app in noctalia's launcher launched nothing**. Not every time, which is why it
-went unnoticed: entries whose `Exec` has quoted or spaced arguments take an
-earlier branch (`app.execute()`) and do work.
-
-The overlay rewrites them to `mmsg dispatch` (`docs/adr/0025`), with a check
-pairing each verb against mango's own function table — `mmsg` answers an unknown
-*function* exactly as it answers an unknown *command*: `{"error":…}`, exit 0.
-
-Two calls are deliberately left in the flag form. `mmsg -g -A` (display scales)
-and `mmsg -s -t` (tag switch) need a different call **shape**, not a different
-spelling; they are the `DwlIpc` half above, behind the empty workspace widget.
-
-⚠️ **Once a package is overridden in the overlay, `prev.<pkg>` is the wrong
-one.** Every consumer must take `final.`, or the system carries two closures and
-they are not interchangeable: **quickshell resolves an ipc target by the
-`shell.qml` PATH the instance was started from**, so a caller built against the
-unpatched derivation gets `No running instances` while the shell is up. The
-`lockscreen` wrapper is the one that matters — it would hand every unattended
-lock back to swaylock, indistinguishably from noctalia simply being down.
-`checks/static.sh` pins the wrapper's copy to the system's.
-
-⚠️ **This also decides where applications live.** `mmsg dispatch
-spawn_shell` makes them children of **mango**, in the session scope. The
-alternative fix — noctalia's `appLauncher.customLaunchPrefix`, which routes
-through `Quickshell.execDetached` — makes them children of the *shell*, inside
-`noctalia.service`, whose `KillMode=control-group` means **a mode switch kills
-everything launched from noctalia**. Same for anything started from the dock.
-
-### Leaving noctalia mode leaves 1 MB of tmpfs behind, every time
-
-The shell itself exits cleanly — the unit's cgroup takes the whole tree,
-`setsid` and all — but **quickshell never removes its instance directory**. Each
-start leaves `$XDG_RUNTIME_DIR/quickshell/by-id/<id>/` holding a socket, a lock
-and a `log.qslog` that reaches 1.5 MB. It *knows* they are dead: every failed
-`ipc call` prints a "Dead instances:" list naming them. 18 of them were holding
-11 MB of RAM on 2026-08-16.
-
-`noctalia-start.sh` prunes them before each start, using quickshell's own
-`by-pid/` index for liveness rather than parsing the binary lock file.
-
-```sh
-du -sh "$XDG_RUNTIME_DIR/quickshell"   # what it has accumulated
-```
-
-### Entering noctalia mode used to end night light for the session
-
-`NightLightService.qml` runs **`pkill -x wlsunset` in `Component.onCompleted`,
-unconditionally** — on every start, whether or not `nightLight.enabled` is
-pinned off. It matches: this repo's wlsunset is unwrapped, so `comm` is plain
-`wlsunset` and `-x` hits (the usual `-x`-misses-the-wrapper trap does not save
-this — see Scripts).
-
-The reason it stayed dead is systemd's, not noctalia's. **`Restart=on-failure`
-does not restart a process killed by SIGTERM**: systemd counts SIGTERM, SIGINT,
-SIGHUP and SIGPIPE as *clean* exits. Confirmed with a transient unit —
-`Result=success`, `NRestarts=0`. `night-light-run.sh` ends in `exec wlsunset`,
-so wlsunset **is** the unit's main process and takes the signal directly.
-
-The unit is now `Restart=always`, with a check on it. noctalia's own journal is
-where this was found, and it says so plainly:
-
-```sh
-journalctl --user -u noctalia | grep 'Killed stale wlsunset'
-systemctl --user show wlsunset -p NRestarts -p ActiveState
-```
-
-### A night light left on in tiling was unreachable in noctalia mode
-
-wlsunset's only controls are the `custom/night` bar module and the control
-centre's `night` row, and noctalia mode runs neither. Its own night light is
-pinned off, so its panel could not reach wlsunset either: the screen stayed
-warm, with nothing able to change it, until the next switch back. Nothing logged.
-
-`noctalia-start.sh` stops the unit on **every** entry into the mode — not just a
-switch, because the unit is `WantedBy=graphical-session.target` and logging
-straight in produced this too — and says so. It stays off on the way out
-(`docs/adr/0037`). **`stop`, not `pkill`**: see the entry above.
-
-### Editing noctalia's settings seed changes nothing
-
-**`noctalia/settings.json` is written once, when there is no file at all**, so
-on any machine that has entered the mode even once, adding a key there is a
-change that lands in the repo and never on the machine — which looks exactly
-like a key that does not work. The half that *does* apply is
-`noctalia/settings-pinned.json`, merged over the live file on every entry into
-the mode (ADR 0022). Put a setting that must hold there; put a preference the
-UI may keep in the seed.
-
-**noctalia ignores a settings key it does not know, in silence** — no log, no
-fallback, and the UI shows its own default. So a key renamed upstream stops
-applying and looks as though it was never set. `checks/static.sh` asserts every
-key path in both files still exists in the package's
-`Assets/settings-default.json`.
-
-The pin is skipped while the shell is running, because noctalia holds settings
-in memory and writes the whole file back. It says so with `notify-send` rather
-than reporting a merge that was about to be overwritten.
 
 ### A tracked, linked file can still be inert
 
@@ -626,9 +422,8 @@ Check the return value; it is the only signal available. `checks/static.sh` fail
 on a dash-flag `mmsg`.
 
 **`no_border_when_single=1` removes every tiled window's border, not just a lone
-one.** Tiling mode ran without an active-window border for as long as it carried
-that line; noctalia mode always set it to `0`, which is why the symptom looked
-mode-specific. The option is read in `check_hit_no_border()`
+one.** The desktop ran without an active-window border for as long as it carried
+that line. The option is read in `check_hit_no_border()`
 (`src/fetch/client.h`), whose first arm is
 `ISSCROLLTILED(c) && visible_scroll_tiling_clients == 1` — and `ISSCROLLTILED` is
 not a scroller-layout test, it is `!floating && !minimized && !killing &&
@@ -636,43 +431,28 @@ not a scroller-layout test, it is `!floating && !minimized && !killing &&
 screen the counter still read 1 and every tiled border went. Floating windows kept
 theirs, which is the tell. Verified on mango 0.16.0 by A/B on the live session at
 `borderpx=1`: `0` → 11,190 border-coloured pixels below the bar, `1` → none.
-`checks/static.sh` fails on a mode config that sets it back to `1`.
+`checks/static.sh` fails on a config that sets it back to `1`.
 
 ⚠️ **Sample the framebuffer; do not trust `mmsg get`.** Nothing in the client JSON
 exposes `bw`, so the only way to see whether a border is drawn is `grim` plus a
 pixel dump for the theme's `focuscolor`. A nested instance
 (`XDG_CONFIG_HOME=… WLR_BACKENDS=wayland mango`) did *not* reproduce this, so it
-also cannot be the whole test — bisect against the running session by re-pointing
-`config.conf` at a scratch copy and `mmsg dispatch reload_config`.
+also cannot be the whole test — bisect against the running session by editing a
+scratch copy of the tree and `mmsg dispatch reload_config`.
 
-**`mango/config.conf` is a symlink, gitignored, and the file it points at *is*
-tracked.** `apply_mode` re-points it with `ln -sfn` on every mode switch
-(`docs/adr/0040`), so **`readlink ~/.config/mango/config.conf` names the active
-mode** — that is the quick way to ask. The real files are `tiling/tiling.conf`
-and `noctalia/noctalia.conf`; tracking the link would commit something that
-changes on every switch.
+**If `mango/config.conf` ever goes missing, mango starts on built-in defaults —
+no waybar, no keybinds, nothing logged.** It is tracked and store-linked since
+`docs/adr/0061`. The fallback mango tries first is `/etc/mango/config.conf`,
+which does not exist on NixOS: the package ships its default under `$out/etc/`,
+which never lands at `/etc`. Confirmed by probe — `HOME=$empty mango -p` exits 1
+with `Failed to open config file: /etc/mango/config.conf`.
 
-It is seeded to `tiling` at activation by `seedModeConfig`, so a fresh clone is
-no longer the hole it was. **If it ever goes missing or dangles, mango starts on
-built-in defaults — no waybar, no keybinds, nothing logged.** The fallback it
-tries first is `/etc/mango/config.conf`, which does not exist on NixOS: the
-package ships its default under `$out/etc/`, which never lands at `/etc`.
-Confirmed by probe — `HOME=$empty mango -p` exits 1 with
-`Failed to open config file: /etc/mango/config.conf`.
-
-⚠️ **It used to be a `cp`, and reverting to one would look like it worked.** A
-copy is stale by construction: rebuild while a mode is active and `<mode>.conf`
-re-points at a new store path while `config.conf` keeps the old bytes until the
-next switch. `checks/static.sh` asserts the `ln -sfn` is still there for exactly
-that reason.
-
-**`mango/walker/config.toml` was the same shape and once broke `rebuild`
-outright.** Each `autostart.conf` `ln -sf`'d it into place, but it was *also*
+**`mango/walker/config.toml` once broke `rebuild` outright.** Each `autostart.conf` `ln -sf`'d it into place, but it was *also*
 tracked, so home-manager wanted to own it: activation died with `Existing file …
 would be clobbered`, and `backupFileExtension` does not help. The timing was
-the nasty part — the symlink only exists once a mode script has run, so the
-failure surfaced after an unrelated mode switch. It is gone with walker (rofi
-has one config for every mode), but **when adding anything under
+the nasty part — the symlink only existed once a mode script had run, so the
+failure surfaced after an unrelated mode switch. It is gone with walker, but
+**when adding anything under
 `dotfiles/mango/`, check nothing writes to that path at runtime.**
 
 **Don't `sudo` the mango scripts.** Under sudo `~` is `/root`, so `reload.sh`
@@ -682,13 +462,11 @@ leave a **root-owned elephant** an ordinary `pkill` cannot kill. `reload.sh`
 refuses to run as root; it no longer restarts any daemon, because rofi has
 none.
 
-**Runtime state is `${XDG_STATE_HOME:-$HOME/.local/state}/mango`** (`current-mode`,
-`waybar-layout`, `waybar-position`, `night-temp`, `last-vpn`). One script
-disagreeing about that path made mode switching **one-way with nothing logged**:
-`current_mode()` never found the file, fell back to `"tiling"`, and the
-"already in that mode" guard exited 0. Running the mode script by hand always
-worked, which hid it. If a mode switch goes one-way again, check that every
-reader *and* writer agrees. `checks/static.sh` scans for the old path.
+**Runtime state is `${XDG_STATE_HOME:-$HOME/.local/state}/mango`** (`bar-layout`,
+`bar-position`, `night-temp`, `last-vpn`). One script disagreeing about that path
+once made the old mode switch **one-way with nothing logged**: the reader never
+found the file, fell back to its default, and the "already there" guard exited
+0. If a toggle goes one-way, check that every reader *and* writer agrees. `checks/static.sh` scans for the old path.
 See `docs/adr/0003`.
 
 **`bind=` matches on keycode; `bindsym=` matches on keysym.** So
@@ -704,13 +482,12 @@ leftover guarded by `command -v`, so it is a permanent no-op; the real agent is
 the `polkit-gnome-authentication-agent-1` user service in `desktop.nix`.
 
 **Editing `dotfiles/mango/` needs a rebuild** — `~/.config/mango` is a store path
-with `recursive = true` (so the mode scripts can still `cp`), and the files there
-are read-only copies. Rebuild, *then* reload.
+with `recursive = true` (so generated files can sit inside it), and the files
+there are read-only copies. Rebuild, *then* reload.
 
 **The parser is last-wins, and `source=` is processed inline at its position.**
-So a key set *after* a `source=` overrides what that file set — which is how
-`noctalia/noctalia.conf` sources the shared settings and then disagrees with
-them (ADR 0022) — and the same key set *before* it is silently discarded.
+So a key set *after* a `source=` overrides what that file set, and the same key
+set *before* it is silently discarded.
 Measured on 2026-08-15, not assumed. The probe is cheap, because one option has
 a value that can be read back:
 
@@ -746,13 +523,11 @@ work everywhere and are the fix if it ever moves.
 **Settings are last-wins but binds are first-wins, and a duplicate warns.**
 Binds append (`parse_config.h`: `realloc(… count + 1 …)`) and the dispatcher
 stops at the first match (`src/mango.c`, `only match the first keybind`), so a
-mode conf sourced *ahead* of `universal/bind.conf` does override it — the exact
+file sourced *ahead* of `universal/bind.conf` does override it — the exact
 opposite of the rule for scalar settings two paragraphs up. Do not use it
 without a reason: mango also prints `[WARNING] Key binding conflict` naming both
 files and both lines for every duplicate, unless both binds carry the `c` flag,
-and a handful of those trains the eye to ignore the one that matters. Mode-dependent
-keys go through `scripts/menus/shell.sh` instead (ADR 0023); only keys that
-exist in *one* mode are bound per-mode.
+and a handful of those trains the eye to ignore the one that matters.
 
 **A misspelled option IS reported** — a rarity in this repo, so use it. mango
 prints `[ERROR]: Unknown keyword: <key>` with the file and line number to
@@ -793,15 +568,12 @@ idle period. It costs battery and logs nothing. `;` blanks either way, which is
 correct in both cases: already locked, or newly locked.
 
 **That same failure is the only way to ask "is the session locked?".** Nothing
-here answers the question directly: noctalia's `lockScreen` IPC declares one
-function, `lock()`, and returns before its lock surface exists; `mmsg get` has
-no session-lock subcommand; `loginctl`'s `LockedHint` tracks the logind *signal*
+here answers the question directly: `mmsg get` has no session-lock subcommand; `loginctl`'s `LockedHint` tracks the logind *signal*
 and not the Wayland protocol, so it is unchanged by either locker. What does
 answer it is running swaylock and reading the exit status — it prints
 `Failed to lock session -- is another lockscreen running?` and exits non-zero
-only once the compositor has confirmed the session locked. `lockscreen` uses
-exactly that as the proof behind the noctalia lock (`docs/adr/0024`), which is
-also why it is safe: the probe's *success* case is a lock too.
+only once the compositor has confirmed the session locked. The probe is safe
+because its *success* case is a lock too.
 
 **`programs.swaylock.package` must be `null` here.** `desktop.nix` installs
 **swaylock-effects** system-wide and declares PAM for it, but the home-manager
@@ -825,8 +597,8 @@ configured this way — just stops appearing.
 
 That config is also the *only* one now: `~/.config/swaylock/config` used to be
 an **untracked** hand-written file that quietly supplied the theme to every bare
-`swaylock -f`, alongside a per-mode copy at `mango/<mode>/swaylock.conf` for
-the `--config` binds. All of them are gone.
+`swaylock -f`, alongside per-mode copies under `mango/` for the `--config`
+binds. All of them are gone.
 
 **Its colours come from `palette.nix`, and did not until 2026-08-16.** The ring
 and the keypress highlight were gruvbox *orange* (`d65d0e`, `fe8019`) while the
@@ -1002,9 +774,7 @@ drawing Adwaita art beside Papirus and resolving 90 of 97 desktop entries
 instead of 96, and nothing said so: an unresolved name draws a blank icon
 column, never an error. `rofi/icons.rasi` is generated from the palette by
 `modules/home/dotfiles.nix` and `@import`ed by `config.rasi`, so the name has
-one owner. Scheme-level, not per mode — the icon set is an artefact
-(`docs/adr/0034`), which is why it is a second file rather than a line in
-`colors.rasi`.
+one owner.
 
 **Window mode looks an icon up by the lowercase appid, with no desktop-file
 step.** `wayland-window.c:610` calls `rofi_icon_fetcher_query(g_utf8_strdown(
@@ -1271,39 +1041,12 @@ not.
 
 ---
 
-## Wayle
-
-**Installed and generated; nothing starts it.** wayle held the bar, the
-notification daemon, the OSD and the wallpaper engine in tiling mode between
-2026-08-24 and 2026-08-27. `docs/adr/0051` says what came back and why. Its
-config is still built by `modules/home/wayle.nix` and its stylesheet is still
-`dotfiles/wayle/index.scss`, so a rebuild still has to satisfy the two
-constraints below.
-
-The rest of what was learned porting the bar to it — its selector precedence,
-its spacing model, its icon chain, its Jinja2 formats and its silent config-key
-clamps — went with the section on 2026-08-28. It described a surface no mode
-draws, and `git log` has it if wayle is ever started again.
-
-**`services.wayle.settings` must stay `{ }`.** The module claims
-`wayle/config.toml` the moment it holds one value, and that path is owned by
-`scripts/wayle/wayle-restart.sh`, which re-points it per layout and position.
-Two owners for one path is an activation failure, not a merge, and
-`checks/static.sh` asserts the file is absent from the generation. A missing
-link there leaves a plausible bar that is not this one, which is why
-`wayle.nix` seeds it at activation.
-
-**`runtime.toml` beats the config file, quietly.** `wayle config set` writes
-`~/.config/wayle/runtime.toml` and it wins over everything generated. Nothing
-warns. If wayle is ever started again, check that file before believing the
-generated one.
-
 ## Waybar
 
-> waybar was the tiling bar until 2026-08-24, wayle's between then and
-> 2026-08-27, and is again. `docs/adr/0051`. Nothing below was invalidated by
-> the round trip; the four findings at the top of this section came *out* of it,
-> from rendering the two bars side by side rather than from reading configs.
+> waybar was the bar until 2026-08-24, wayle's between then and 2026-08-27, and
+> is again; wayle is removed (`docs/adr/0051`, `docs/adr/0061`). The four
+> findings at the top of this section came from rendering the two bars side by
+> side rather than from reading configs.
 
 **`format-alt` does nothing on its own.** `ALabel::handleToggle` is gated on
 `config_["format-alt-click"].isUInt()` (`ALabel.cpp:181`) and waybar sets no
@@ -1357,7 +1100,7 @@ first.
 |---|---|
 | `dynamic-order` | WHICH fields render. Unwritten it defaults to title, artist, album **and position** — so the label was `The Yogscast [06:03/13:48]`, a running clock in the space the title should have had. "Absence in this list means force exclusion" (`waybar-mpris(5)`) |
 | `dynamic-len` | a **DROP** threshold, not a truncation one. waybar removes a field that does not fit rather than shortening it, so at 25 a 35-character title vanished entirely and the 12-character artist was what remained. Reordering `dynamic-importance-order` does not change it — tried both ways, same output |
-| `max-length` | the one that behaves like wayle's `label-max-length`: truncates the composed string with an ellipsis |
+| `max-length` | truncates the composed string with an ellipsis |
 
 So "cap the media label at 25 characters" is `dynamic-len` high enough that
 nothing is dropped plus `max-length = 27` (the status icon, its space, and 25),
@@ -1476,7 +1219,7 @@ deleted. Two owners for one path is an activation failure.
 script dies with the bar; the stream inside its process substitution does not.
 Four orphans were alive at once on 2026-08-16 — PPID 1, up to fourteen hours
 old, ~5 MB each, every one holding an open IPC socket to mango with nothing
-reading from it. One leaks per `pkill waybar`, so **every mode switch and every
+reading from it. One leaks per `pkill waybar`, so **every reload, layout switch and
 `waybar-reload`**. The tell is that they carry `WAYBAR_OUTPUT_NAME` in their
 environment long after the bar that set it is gone:
 
@@ -1491,13 +1234,13 @@ name, since matching `mmsg` would take out every other module's watcher too.
 and SIGPIPE's default action skips the `EXIT` trap. `checks/static.sh` requires
 it of every script that streams `mmsg watch`.
 
-**`on-scroll-up` on the volume and backlight modules DECREASES, and that is
-correct.** `trackpad_natural_scrolling=1` makes libinput invert the axis before
-any client sees it, so fingers-up arrives as `on-scroll-down`. Reading the
-generated JSON alone makes this look like an inversion bug; it was "fixed" on
-that basis once and reverted. Note `mouse_natural_scrolling=0`, so an external
-wheel gets the opposite behaviour and no single config serves both. `-l 1.5` is a
-volume ceiling and belongs on whichever direction increases.
+**Scroll direction on the bar follows libinput's, not the fingers'.**
+`trackpad_natural_scrolling` inverts the axis before any client sees it, so the
+volume and backlight scroll pairs, on the bar and mango's `axisbind`s, must match
+that setting. Swipe gestures are not affected. Trackpad and mouse are both `0` since
+2026-11-06 and `on-scroll-up` increases. While the trackpad was natural, the pairs
+read backwards on purpose and were once "fixed" from the JSON alone and reverted.
+`-l 1.5` is a volume ceiling and belongs on whichever direction increases.
 
 > `mpris` and `ext/workspaces` disagree about scroll direction in either frame.
 > Known, deliberately left alone — flag it rather than changing it unasked.
@@ -1610,28 +1353,20 @@ survived two rounds.
 
 **The idle inhibitor used to be process state, and a waybar restart released
 it.** Fixed on 2026-08-18 (docs/adr/0031): it is `wlinhibit.service` now and the
-bar module only reports it, so `waybar-reload`, a layout switch, a mode switch
-and `SUPER+/` all leave it held. Before that the toggle was a static bool on a
+bar module only reports it, so `waybar-reload`, a layout switch and `SUPER+/`
+all leave it held. Before that the toggle was a static bool on a
 surface that died with the bar — and the glyph went back to `󰒲` at the same
 instant, so the bar was never visibly *wrong*, it just stopped being what had
 been set. `minimal` still does not carry the module; it no longer needs to,
 because
-`SUPER+SHIFT+A` reaches it in every mode and every layout.
+`SUPER+SHIFT+A` reaches it in every layout.
 
-Two things that remain true about it:
+One thing that remains true about it:
 
 - **A `failed` unit has already released the inhibitor.** The state lives
   outside the thing that draws it now, so the bar can lag reality — hence the
   red `failed` class and a 30s poll underneath the signal. Red `󰒳` means the
   ladder is live, whatever the glyph suggests.
-- **Entering noctalia releases it, on purpose.** `SUPER+SHIFT+A` drives
-  quickshell's `IdleInhibitor` in noctalia mode and `wlinhibit` in tiling
-  (docs/adr/0023), and noctalia's IPC has no getter — so the two can never be
-  read into step, and `apply_mode` hands over instead: one owner per mode. A
-  notification fires when it actually releases something, and re-arming in
-  noctalia is the same key. **The handover is one-way**: coming back out to
-  tiling does not restore it, because nothing can ask noctalia whether it
-  was holding one.
 
 `checks/static.sh` asserts at least one layout still carries the module, that
 the unit exists, and that it has no `WantedBy=` — an inhibitor armed at login
@@ -1734,7 +1469,7 @@ its "KDE Connect not running" branch, which emits empty text. Fixing that guard
 (`866b57b`) made the module render for the first time, unstyled: no padding, no
 `border-left`, so the phone glyph sat flush against `custom/power-profile` and
 read as **a second icon inside the power module** rather than a module of its
-own. It was reported that way, and blamed on the noctalia work landing the same
+own. It was reported that way, and blamed on unrelated work landing the same
 week.
 
 Two things follow. **A dead guard hides a presentation bug behind a functional
@@ -2148,20 +1883,17 @@ and the WiFi resume fix. The traps worth remembering:
 - ⚠️ **Turning off power-profiles-daemon removed the *answer*, not just the
   second tuner.** PPD is also the interface desktops use to *ask* what the power
   profile is, so `services.power-profiles-daemon.enable = false` left every such
-  client — noctalia's control-centre button, GNOME's power page,
-  `powerprofilesctl` — finding no service and rendering a greyed control, in
+  client — GNOME's power page, `powerprofilesctl`, a shell's power button — finding no service and rendering a greyed control, in
   silence, for months. `power-profiles-tlp` now owns that bus name and answers it
   from TLP (`docs/adr/0026`). **When a daemon is disabled because it conflicts,
   check what else was reading its interface.**
 - ⚠️ **A running unit is not an activatable bus name, and `systemctl status`
   cannot distinguish the two.** `power-profiles-tlp` came up, owned the name,
-  and answered `busctl` correctly — and noctalia still did nothing, because
-  quickshell probes the name at *its* startup, tries to **activate** it when
-  unowned, and gives up for the life of the process. The tell was an hour-old
-  journal line, `Could not launch service …: The name is not activatable`,
-  followed by `The PowerProfiles service will not work`. Meanwhile
-  `noctalia-shell ipc call powerProfile set balanced` printed nothing, which by
-  `docs/adr/0023`'s rule looks like success. **Any daemon here that owns a bus name
+  and answered `busctl` correctly — and a client still did nothing, because it
+  probed the name at *its* startup, tried to **activate** it when unowned, and
+  gave up for the life of the process. The tell was an hour-old journal line,
+  `Could not launch service …: The name is not activatable`, followed by
+  `The PowerProfiles service will not work`. **Any daemon here that owns a bus name
   a desktop client consumes needs `share/dbus-1/system-services/<name>.service`
   with `SystemdService=`**, not just a `wantedBy` unit. `checks/static.sh`
   asserts it.
@@ -2352,7 +2084,7 @@ once and rebuild. See `docs/adr/0028`.
 **Grepping for a hex code does not find every copy of it.** The 2026-08-17 audit
 found twelve copies the palette was not reaching, in five spellings — mango
 writes `0xd79921ff`, swaync writes `rgb(215, 153, 33)`, and nvim and the
-GTK/Kvantum/cursor/noctalia themes carry no hex at all. A repo-wide grep for
+GTK/Kvantum/cursor themes carry no hex at all. A repo-wide grep for
 `d79921` found **neither** decimal copy. `checks/static.sh` now asserts the
 accent is present in each consumer's own spelling, and — the other direction —
 that no palette hex appears anywhere in `dotfiles/` outside the exempt
@@ -2367,7 +2099,7 @@ loud rather than reassuring.
 
 **The artefacts the palette cannot reach are declared in the theme file**, since
 `docs/adr/0032`: the GTK theme, GTK4 (follows it), icons, cursor, Kvantum, yazi's
-flavor, and the names noctalia, nvim and Zed resolve internally. They live in the
+flavor, and the names nvim and Zed resolve internally. They live in the
 `packages` and `apps` blocks of `modules/home/themes/*.nix`; `pkgs/default.nix`
 resolves them and `checks/static.sh` asserts each resolves to a real directory.
 Before that they were spelled across six files with nothing checking them.
@@ -2410,12 +2142,6 @@ generated name equals the scheme's, and that no hand-written file under
 `dotfiles/mango` sets `cursor_theme` again. mango resolves a `source=./…` path
 against the config-dir root at any nesting depth, so the include works from
 inside `universal/`.
-
-**No shipped scheme uses a `native = false` stand-in, and that is the selection
-criterion.** noctalia constrains the set: it resolves its palette from a name in
-its own shipped Assets, so a scheme it does not ship leaves half the screen on a
-different palette. Of its ten, nixpkgs fully serves Catppuccin, Gruvbox and Nord.
-Rose Pine is the nearest miss, short only a GTK theme.
 
 **ncspot's `muted.err` is a BACKGROUND, and the check measured it as text.** It
 sets `error_bg`, with `error_fg` (= `muted.fg`) on top. The check compared it
@@ -2510,8 +2236,7 @@ derivations on `XDG_DATA_DIRS` and let lookup order pick the folder colour.
 **Indirection that selects nothing is this repo's recurring dead weight.**
 `kitty/active-theme.conf`, the `gtk-*-tiling` variants and `waybar/style.css`
 were each a switch whose arms were identical or unreachable, left behind when the
-`dms` mode was removed. Before adding a per-mode variant, check the modes
-actually differ.
+`dms` mode was removed. Before adding a variant, check its arms actually differ.
 
 **A Nerd Font package and its unpatched twin have different family names.**
 `_0xproto` is family `0xProto`; only `nerd-fonts._0xproto` is
@@ -2525,15 +2250,10 @@ is installed correctly. Verify with the application's own resolver —
 Normal/Bold/Italic/Bold-Italic. 0xProto ships no bold-italic, so that one variant
 is Hack by design.
 
-**`programs.ncspot.settings` must stay `{ }`, and that is load-bearing rather
-than leftover.** ncspot's whole config is its theme, so since `docs/adr/0034`
-phase 3 `~/.config/ncspot/config.toml` is a runtime symlink `apply_theme()`
-re-points per mode. The home-manager module wraps its own
-`xdg.configFile."ncspot/config.toml"` in `mkIf (cfg.settings != { })`, so an
-empty set installs the package and claims no path — but **one** value there
-re-claims it, and two owners for one path is an activation failure, not a merge.
-Any future non-theme ncspot setting belongs in `mode-theme.nix` with the
-colours. `checks/static.sh` asserts the path is absent from the generation.
+**`programs.ncspot` claims `ncspot/config.toml` the moment `settings` holds one
+value.** The module wraps its `xdg.configFile` in `mkIf (cfg.settings != { })`.
+It holds the theme since `docs/adr/0061`, so nothing else may write that path —
+two owners for one path is an activation failure, not a merge.
 
 **ncspot draws from the `muted` set, and a colour from the wrong HALF of the
 right scheme is invisible to an accent scan.** Writing `p.accent` where
@@ -2547,7 +2267,7 @@ one half.
 **Some applications hold a theme *name*, and the palette cannot reach those
 either.** Beyond the six packages above: lualine's `theme`, lazy.nvim's
 `install.colorscheme` fallback, Zed's `theme.dark`/`light`, and the Equibop
-`enabledThemes` line in `mango/scripts/lib.sh`. A scheme migration has to grep
+`enabledThemes` activation step in `modules/home/dotfiles.nix`. A scheme migration has to grep
 for the old scheme's *name*, not just its hex — none of these carry a colour.
 
 > **Zed is the sharp one: Gruvbox ships inside Zed, Catppuccin does not.**
@@ -2555,28 +2275,13 @@ for the old scheme's *name*, not just its hex — none of these carry a colour.
 > leaves Zed on One Dark, logging nothing.
 
 **Equibop enables its theme by FILENAME, and ignores a name that matches
-nothing.** `apply_theme()` in `mango/scripts/lib.sh` writes `enabledThemes` on
-every mode switch, and the file it names is generated by `dotfiles.nix` into
-`~/.config/equibop/themes/` — two halves, in different languages, in different
-directories, with nothing but a string in common. Rename one and Discord goes
-unstyled with nothing logged anywhere. `checks/static.sh` now asserts the two
-agree; that assertion exists because the rename is the obvious move and the
-failure is invisible.
-
-> Since `docs/adr/0034` phase 3 the name is the **mode's** —
-> `<mode>.theme.css`, one generated per mode — so what the check asserts is
-> that lib.sh's suffix and the generated set agree for *every* mode. That is
-> also why Equibop needed no symlink to join the per-mode swap: a name it reads
-> out of its own settings file is the indirection the other four consumers had
-> to be given.
-
-> **A rebuild alone does not enable it.** `enabledThemes` is written by the mode
-> scripts, so the generated theme can be sitting in `~/.config/equibop/themes/`,
-> correct and unreferenced, while Discord still wears the old one. It self-heals
-> on the next mode switch; `mmsg dispatch reload_config` on its own does not do
-> it, because that reloads the compositor without running `mode.sh`. This is what
-> the static check cannot catch — it asserts the two *names* agree, not that the
-> setting was ever applied.
+nothing.** The file is generated into `~/.config/equibop/themes/` as
+`palette.theme.css`, and an activation step in `dotfiles.nix` writes that name
+into Equibop's own `settings.json` — two halves with nothing but a string in
+common. Rename one and Discord goes unstyled with nothing logged anywhere. The
+name is fixed rather than the scheme's, so a scheme change cannot strand it.
+Before `docs/adr/0061` the mode switch wrote the name, and a rebuild alone left
+the old theme enabled.
 
 > The theme itself is **generated**, on the swaync pattern: hand-written layout
 > in `dotfiles/equibop/theme-body.css` with no hex in it, and the `:root` block
@@ -2624,38 +2329,6 @@ real: the lock screen is the one surface that can end up wearing a colour the
 palette never named, and nothing about it looks wrong at a glance. If changing
 `bg0`, there is nothing to update here — the ramp is derived from it.
 
-### Three colour includes, three different failures — and foot is the loud one
-
-kitty, foot and rofi each read their palette through a runtime symlink since
-`docs/adr/0034`. What each does when the link is missing or dangling was
-**measured on 2026-08-19**, not assumed, and they do not agree:
-
-| | Missing include | Symptom |
-|---|---|---|
-| rofi | skipped, nothing logged | built-in Solarized; looks like a theme |
-| kitty | skipped, nothing logged | `color0` and `background` both `#000000` |
-| foot | `failed to open`, **exit 230** | **foot does not start** |
-
-The design that produced these assumed all three were silent. Two are. foot
-refusing to start is not a worse bug — it is the only noticeable one — but
-it means the seed in `modules/home/mode-theme.nix` is load-bearing for *having a
-terminal*, not for having a styled one. Do not remove it on the grounds that
-`apply_theme` makes the links anyway: `apply_theme` runs on a mode SWITCH, and a
-fresh machine has not had one.
-
-Reproduce:
-
-```sh
-# with ~/.config/foot/themes/noctalia moved aside
-foot --check-config; echo $?      # 230, and it says which line
-```
-
-**foot also cannot reload.** 1.27's `SIGUSR1`/`SIGUSR2` switch between the
-`[colors-dark]`/`[colors-light]` sections *already loaded* — there is no config
-re-read at all, so a swap reaches **new windows only**. `apply_theme` says so in
-its notification every time, because a terminal that did not change colour with
-everything else looks like the swap being broken. kitty's `SIGUSR1` does work.
-
 ### A hex no theme declares is invisible to the drift ceiling
 
 `checks/static.sh` scans hand-written files for palette colours by grepping for
@@ -2671,63 +2344,6 @@ moving kitty's colours out, not by any check. It is `p.subtext` now.
 Closed by a second, differently-shaped assertion: **no six-digit hex literal in
 any `.nix` outside `modules/home/themes/`.** The pass state is zero matches, so
 the floor is on the number of files scanned rather than on the match count.
-
-### noctalia's theming templates un-manage a file rather than failing on it
-
-`templates.activeTemplates` renders noctalia's palette into a sidecar per app,
-then runs a post-hook that edits the app's real config to point at it. Three of
-those hooks contain deliberate NixOS handling, and it is the wrong kind —
-measured 2026-08-20 against noctalia-shell 4.7.7:
-
-| Template | What the hook does to a store symlink |
-|---|---|
-| GTK | `gtk-refresh.py` detects a "read-only symlink (e.g. NixOS)", then **unlinks `gtk.css` and writes a local copy** |
-| mango | `cp --remove-destination` over it, and strips colour vars from every top-level `*.conf` |
-| yazi | `sed -i` on `theme.toml`, which **is** a home-manager symlink |
-
-None of that errors. The app starts, the colours are fine, and the repo has
-quietly stopped owning the path — a later `nixos-rebuild switch` neither restores
-it nor complains, because home-manager sees a regular file where it expected its
-own link.
-
-The quieter half: kitty's hook writes `current-theme.conf` and foot's *sidecar
-is* `themes/noctalia`, both owned by `apply_theme` (`docs/adr/0034`). The rest
-write files nothing here reads, so they look like they worked.
-
-**Off permanently and asserted — `docs/adr/0036`**, which carries the
-per-template measurements and the test to apply before ever enabling one.
-
-### A contrast floor that audits one scheme passes a mode nobody can read
-
-`checks/static.sh` measured every text role against its theme's declared floors
-— for **the scheme `scheme.nix` names**, because `flake.nix` passed it exactly
-one resolved palette. That was correct until `modules/home/modes.nix` landed
-(`docs/adr/0034`) and a second scheme went on screen in noctalia mode. The
-second one would then have been unaudited, with the check still printing a green
-line about the first: the scan passing by never looking at the thing that
-changed, which is what every floor in this file exists to prevent.
-
-Caught before it shipped, and only because the phase that introduced the second
-scheme also looked at what the check was reading. The fix is the shape, not the
-loop: `flake.nix`'s fourth argument is now `{ artefact, modes, schemes }` where
-`schemes` holds **every scheme in service**, deduplicated and built from the
-same two files that put them there. Adding a mode scheme cannot add an unaudited
-one — there is no list to remember to update.
-
-nord's numbers had never been measured before this. They pass.
-
----
-
-Baseline: **whatever `modules/home/scheme.nix` names** — currently `gruvbox`.
-That is the **artefact** scheme (widget art, icons, cursor, yazi, nvim, Zed) and
-the default for every colour consumer. `modules/home/modes.nix` names a colour
-scheme **per desktop mode** (`docs/adr/0034`); `noctalia` mode is currently
-`nord`, which reaches mango's chrome and noctalia's own palette and nothing else
-yet. Hack Nerd Font Mono 11 in the terminals, with kitty bold/italic in 0xProto
-Nerd Font Mono. Modes are **tiling** and **noctalia**; the active one is
-in `~/.local/state/mango/current-mode`.
-
----
 
 ### `xrdb` failing a cosmetic reload aborts the whole home-manager generation
 
@@ -2939,8 +2555,8 @@ one — `XDG_CONFIG_HOME=/tmp/…/scratchpad/cfg` into the manager environment.
   takes its profile root from `$XDG_CONFIG_HOME/zen`, found nothing, and **created
   a new empty profile** — a Zen with no extensions, no logins, no history. Reads
   exactly like the Arch-carryover profile bug, unrelated cause;
-- noctalia wrote its `settings.json` under `/tmp` for a day, where a reboot would
-  have taken it.
+- noctalia (since removed) wrote its `settings.json` under `/tmp` for a day,
+  where a reboot would have taken it.
 
 **Three applications, three apparent bugs, one cause, nothing logged anywhere.**
 The tells:

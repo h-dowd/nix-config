@@ -1,9 +1,6 @@
 # Heartbox — upstream's values, plus the four things it does not publish.
 #
-# From `noctalia-dev/noctalia-colorschemes`, not from noctalia-shell: the
-# package ships ten schemes and Heartbox is not one of them, so
-# `modules/home/dotfiles.nix` writes its JSON into
-# `~/.config/noctalia/colorschemes/` from the values below. docs/adr/0041.
+# From `noctalia-dev/noctalia-colorschemes`. docs/adr/0041.
 #
 # THE FIRST SCHEME THIS REPO COULD NOT HAVE WORN. nixpkgs has no Heartbox GTK
 # theme, Kvantum theme or cursor set, and there is no Heartbox nvim plugin,
@@ -149,10 +146,6 @@ rec {
 
   # --- Applications that hold a theme NAME ----------------------------------
   apps = {
-    # Written to ~/.config/noctalia/colorschemes/Heartbox/Heartbox.json from
-    # this file, because the package does not ship it. dotfiles.nix.
-    noctalia = "Heartbox";
-
     # No Heartbox nvim plugin exists, so this drives catppuccin/nvim's
     # `color_overrides` hook with the values above — the mechanism
     # `modules/home/palette.nix` documents for exactly this, and what

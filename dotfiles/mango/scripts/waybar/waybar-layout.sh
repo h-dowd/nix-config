@@ -1,19 +1,6 @@
 #!/usr/bin/env bash
 # Pick the waybar layout (SUPER+/).
-#
-# Every layout here is reachable, which was not true until hud left
-#: hud was a mode that forced its own layout, so in hud mode
-# this picker wrote a choice to state that waybar-restart.sh then overrode —
-# accepted, recorded, and invisible.
 . "$HOME/.config/mango/scripts/lib.sh"
-
-# Refuse before the picker opens, and say so: in noctalia mode there is no
-# waybar to lay out, and a menu that accepts a choice and then does nothing is
-# worse than a key that reports why.
-if ! mode_has_bar; then
-	notify-send "Waybar" "No waybar in $(current_mode) mode"
-	exit 0
-fi
 
 LAYOUTS=("full" "focus" "minimal")
 

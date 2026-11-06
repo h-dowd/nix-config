@@ -6,7 +6,7 @@ theme**. Both met this record's own test — their colour is data in their
 source — and both were blocking `heartbox`.
 
 Amends [0032](0032-the-theme-file-owns-its-artefacts.md) and
-[0034](0034-colour-follows-the-mode-artefacts-do-not.md), which both record the
+0034, which both record the
 artefact half of a scheme as permanently unreachable. It is not. This record
 says what is reachable, what stays named, and what the new failure class is.
 
@@ -16,7 +16,7 @@ says what is reachable, what stays named, and what the new failure class is.
 palette reaches colour, and a theme file separately *names* the artefacts the
 palette cannot reach — GTK and Kvantum widget art, icons, cursors, the yazi
 flavor, the nvim plugin, the Zed theme.
-[0034](0034-colour-follows-the-mode-artefacts-do-not.md) hardened that into a
+0034 hardened that into a
 scope line — "widget art, icons, cursors, plugins: no, permanently" — and
 `CLAUDE.md` records the consequence as a constraint on the repo itself: noctalia
 ships ten colour schemes, nixpkgs fully serves three, *so those are the three
@@ -89,7 +89,7 @@ the section it currently has. It does not gate which schemes may be adopted.
   therefore asserts **absence of the sentinel** and a **floor on the count of
   files it changed** — 68 for cursors — and pins upstream's internal names with
   `--replace-fail`, as the noctalia patch already does
-  ([0025](0025-patch-noctalias-mango-backend.md)).
+  (0025).
 - **"It compiled" is further from "it looks right" than anywhere else in this
   repo.** Substitution is checkable by grep; a palette mapped badly onto forty
   GTK roles is legible only to a person looking at a window. This is the real

@@ -4,10 +4,8 @@
 # these files are chosen and what the shared key names mean.
 #
 # The sixteen `nordN` colours are Nord's published palette. Where a role has to
-# pick among them, the pick follows noctalia's own shipped
-# `Assets/ColorScheme/Nord/Nord.json`, because noctalia resolves its half of the
-# machine from that file by name — taking the same values is what keeps the
-# shell and the bar agreeing.
+# pick among them, the pick follows noctalia's shipped
+# `Assets/ColorScheme/Nord/Nord.json`.
 #
 # NORD IS THE DIMMEST SCHEME HERE, and this file ships it that way. `nord3`
 # (#4c566a) is Nord's comment colour and it is **1.69:1** on `nord0` — the
@@ -83,8 +81,7 @@ rec {
   # `brBlack` so the two can move apart without one silently following the
   # other — which is what a `nord-high-contrast` would want to do.
   comment = "4c566a";
-  # nord7. noctalia's `mPrimary` for this scheme, which is what keeps the bar
-  # and the shell agreeing on the accent.
+  # nord7, noctalia's `mPrimary` for this scheme.
   accent = "8fbcbb";
 
   okColor = green;
@@ -159,8 +156,6 @@ rec {
 
   # --- Applications that hold a theme NAME ----------------------------------
   apps = {
-    noctalia = "Nord";
-
     # The plugin IS the scheme, so `palette` is empty and nvim takes upstream's
     # values — including nord3 for comments, at the same 1.69:1 recorded above.
     nvim = {

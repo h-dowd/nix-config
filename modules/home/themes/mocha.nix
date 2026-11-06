@@ -86,9 +86,7 @@ rec {
   # comments with it. Upstream Mocha's `overlay2`, kept as-is: 5.81:1, which
   # clears this theme's floor.
   comment = "9399b2";
-  # Mocha's mauve — the single accent: selection, active workspace, prompt. It
-  # is what noctalia resolves as `mPrimary` for the same scheme, which is what
-  # keeps the bar and the shell agreeing.
+  # Mocha's mauve — the single accent: selection, active workspace, prompt.
   #
   # A literal rather than an alias, for readability only — the check resolves
   # the `rec` through Nix now, so it would audit this however it is spelled.
@@ -198,9 +196,6 @@ rec {
   # these show up in a search for colours, which is how the Equibop theme stayed
   # gruvbox through a whole migration.
   apps = {
-    # Resolved internally by noctalia's shell against its shipped Assets.
-    noctalia = "Catppuccin";
-
     # nvim takes the plugin whose scheme this IS, per THEME-MIGRATION §3.
     # `palette` is non-empty only for the two Catppuccin themes, which drive the
     # plugin's `color_overrides` hook. A scheme that matches its own plugin

@@ -35,8 +35,8 @@
   };
 
   # A point, which `time.timeZone` is not — open-meteo takes `timezone=auto`,
-  # so the zone is not duplicated here. Declared rather than looked up:
-  # noctalia geocodes through its own host, and two floats reach nobody.
+  # so the zone is not duplicated here. Declared rather than looked up: two
+  # floats reach nobody.
   # `float` so a transposed sign is an eval error. docs/adr/0038.
   options.local.location = {
     latitude = lib.mkOption {

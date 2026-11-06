@@ -175,9 +175,6 @@ rec {
   # these show up in a search for colours, which is how the Equibop theme stayed
   # gruvbox through a whole migration.
   apps = {
-    # Resolved internally by noctalia's shell against its shipped Assets.
-    noctalia = "Catppuccin";
-
     # nvim takes the plugin whose scheme this IS, per THEME-MIGRATION §3.
     # `palette` is non-empty only here and in `mocha.nix`: this theme is a
     # *deviation* from what the plugin ships, so it overrides the plugin's own

@@ -3,7 +3,7 @@
 **Status:** Accepted (2026-08-26).
 
 Amends the *"One colour, and state is the exception"* clause of
-[0045](0045-each-mode-owns-its-wallpaper.md). The principle is unchanged; the list
+0045. The principle is unchanged; the list
 of exceptions grows from two to five.
 
 ## Context
@@ -59,7 +59,7 @@ the role is what delivers it: green means the same thing in all five schemes
 even though gruvbox's is `#b8bb26` and nord's `#a3be8c`. Four fixed hexes would
 be four colours sourced outside `palette.nix`, sitting outside every contrast
 floor and outside the assertion that every generated colour is used — the same
-objection [0036](0036-noctalias-templates-stay-off.md) made to a
+objection 0036 made to a
 wallpaper-derived palette.
 
 **The resting state of each module keeps no rule** and stays `fg-default`:

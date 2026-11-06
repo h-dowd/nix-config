@@ -2,17 +2,9 @@
 # The control centre — one menu that shows the state of every toggle, instead of
 # ten keys you have to remember and a bar you have to squint at.
 #
-# Why this exists. noctalia's control centre was one of the shell.sh actions
-# with `fb=none`, i.e. a key that reported "Only in noctalia mode" everywhere
-# else. The gap was never the toggles — every one of them already had a
-# key and a script here — it was that nothing showed you the set, or the state
-# each one was in. That is most of what "cohesive" means when noctalia is
-# described that way: not a nicer widget, one place where the state is legible.
-#
-# What is not reproducible, and is not attempted. noctalia is one process
-# holding one state model, so its bar glyph, its OSD and its control-centre
-# slider cannot disagree. Here every fact has a different owner, and this file
-# is a reader of those owners, never a second one:
+# Every toggle already had a key and a script; nothing showed the set, or the
+# state each one was in. Every fact has a different owner, and this file is a
+# reader of those owners, never a second one:
 #
 #   - five rows take their icon and their state from the waybar module that
 #     owns the fact (`night-mode.sh status`, `idle-inhibit.sh status`,
@@ -34,8 +26,7 @@
 # that quietly reads "off" for a broken module is this codebase's signature bug
 # with a nicer font. Every state_* below has that branch, deliberately.
 #
-# Reached as `shell.sh control-center`, so in noctalia mode the key goes to
-# noctalia's own panel over IPC and this file is not run at all. docs/adr/0033.
+# Reached as `shell.sh control-center`. docs/adr/0033.
 
 set -u
 
@@ -443,13 +434,9 @@ state_weather() {
 	esac
 }
 
-# BOTH ROWS READ SWAYNC. This menu runs in tiling mode alone — shell.sh hands
-# `control-center` to noctalia's own panel in the other one — so the daemon here
-# is whatever tiling/autostart.conf starts, and that is swaync again
-# (docs/adr/0051). They read `wayle notify status` from 2026-08-26 and
-# `swaync-client` before that; the swaync spelling was live for months against a
-# daemon nothing started, printing `NameHasNoOwner` on stderr and EXITING 0, so
-# both rows rendered `?` and both actions did nothing. docs/adr/0047.
+# BOTH ROWS READ SWAYNC. `swaync-client` against a daemon nothing started
+# prints `NameHasNoOwner` on stderr and EXITS 0, so both rows render `?` and
+# both actions do nothing. docs/adr/0047.
 #
 # `-sw` on both: without it swaync-client WAITS for a daemon that is not there,
 # and this menu renders its rows in parallel — one blocking row holds the whole
@@ -525,10 +512,8 @@ act_weather() {
 	close=1
 }
 act_dnd() { swaync-client -d -sw >/dev/null; }
-# The history is swaync's OWN PANEL. menus/notifications.sh was the rofi list
-# over com.wayle.Notifications1 and went with wayle — swaync-client has count,
-# dnd and toggle, and no list to build one from. docs/adr/0051.
-# docs/adr/0047.
+# The history is swaync's OWN PANEL: swaync-client has count, dnd and toggle,
+# and no list to build one from. docs/adr/0047.
 act_notify() {
 	swaync-client -t
 	close=1

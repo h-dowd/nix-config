@@ -1,8 +1,0 @@
-{
-  "general": {
-    "telemetryEnabled": false,
-    "showChangelogOnStartup": false
-  },
-  "plugins": { "notifyUpdates": false },
-  "appLauncher": { "terminalCommand": "foot -e" }
-}

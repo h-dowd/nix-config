@@ -1,10 +1,11 @@
 # 0026 — Serve the power-profiles-daemon bus name from TLP
 
-**Status:** Accepted (2026-08-17)
+**Status:** Accepted (2026-08-17). noctalia, its first client, is removed by
+[0061](0061-one-desktop-noctalia-and-wayle-removed.md); `powerprofilesctl` and GNOME's power page still use the name.
 
 Follows [0017](0017-tlp-profiles-not-platform-profile.md) (power modes are TLP
 profiles) and [0005](0005-one-owner-per-daemon.md) (one owner per daemon).
-Closes one of the three inert things [0020](0020-noctalia-is-a-desktop-mode.md)
+Closes one of the three inert things 0020
 measured in noctalia mode.
 
 ## Context
@@ -106,7 +107,7 @@ daemon exists to remove.
 does not make the first redundant.** This was learned the hard way, on the first
 live run. With the daemon running and answering `busctl` correctly, noctalia
 still did nothing: `noctalia-shell ipc call powerProfile set balanced` printed
-nothing — success, by [0023](0023-noctalia-owns-its-own-actions.md)'s rule — and
+nothing — success, by 0023's rule — and
 changed neither TLP nor the CPU. The journal had the reason, from an hour
 earlier:
 
@@ -166,7 +167,7 @@ comment had one. dbus rejects the whole file, and the file is loaded by the
   (`BarWidgetRegistry.qml` default `false`), so turning it on means pinning the
   whole `bar.widgets` layout into the seed — owning a structure that upstream
   changes between releases, against
-  [0022](0022-noctalia-mode-looks-like-noctalia.md)'s "seeded, never owned".
+  0022's "seeded, never owned".
   It is two clicks in noctalia's own settings panel. Left to the user.
 - **Every PPD client on the machine starts working, not just noctalia.**
   `powerprofilesctl` is not installed; `busctl get-property

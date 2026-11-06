@@ -14,21 +14,14 @@ usage="usage: static.sh <source-root> <home-manager-generation> <system-toplevel
 SRC=${1:?$usage}
 GEN=${2:?$usage}
 SYS=${3:?$usage}
-# Every scheme this machine wears, resolved by Nix:
+# The scheme this machine wears, resolved by Nix:
 #
-#   .artefact          modules/home/scheme.nix — the widget art, icons, cursor,
-#                      yazi flavor, nvim plugin and Zed theme
-#   .modes.<mode>      modules/home/modes.nix — the colour-only scheme that mode
-#                      wears (docs/adr/0034)
-#   .schemes.<name>    the resolved theme file for each name either names
+#   .artefact          modules/home/scheme.nix's name
+#   .schemes.<name>    the resolved theme file it names
 #
 # Resolved by Nix rather than read out of the theme files with sed, because an
 # aliased role (`okColor = green;`) read as "role absent" — four of them did,
 # and went unaudited. docs/adr/0032.
-#
-# Plural, and that is the point of the shape: a legibility floor that only ever
-# audited scheme.nix's would pass a mode nobody can read. Whatever `.schemes`
-# holds gets audited, so a scheme cannot enter service unaudited.
 SCHEMES=${4:?$usage}
 # Both package lists, name -> store path, resolved by Nix. Ownership is an eval
 # question; see the comment beside this argument in flake.nix.
@@ -42,9 +35,6 @@ PAL_SCHEME=$(jq -r '.artefact // empty' "$SCHEMES" 2>/dev/null)
 pal() { jq -r ".schemes.\"$PAL_SCHEME\"$1 // empty" "$SCHEMES" 2>/dev/null; }
 
 WAYBAR_DIR="$GEN/home-files/.config/mango/waybar"
-# wayle's own XDG directory, not under the mango tree. Only `layouts/` may be
-# here — see the config.toml assertion below.
-WAYLE_DIR="$GEN/home-files/.config/wayle"
 # What home-manager actually wrote. Anything generated is read from here rather
 # than from its source under dotfiles/ — several files have no source any more.
 GEN_CFG="$GEN/home-files/.config"
@@ -138,20 +128,6 @@ else
 	bad "symlinks in the source" "$(echo "$syms" | tr '\n' ' ')"
 fi
 
-# Generated at runtime, so tracking them means two owners for one path. A list
-# of one since walker left — kept as a loop because the shape
-# recurs every time an autostart.conf learns to write something.
-GENERATED=(dotfiles/mango/config.conf)
-for f in "${GENERATED[@]}"; do
-	if is_tracked "$f"; then
-		bad "$f is tracked but is generated at runtime"
-	elif grep -qF "$f" "$SRC/.gitignore"; then
-		ok "$(basename "$f") generated + gitignored"
-	else
-		bad "$f is untracked but has no .gitignore rule"
-	fi
-done
-
 printf '\nScripts\n'
 
 # There is no /bin/bash on NixOS; the shebang fails with exit 127, and a waybar
@@ -170,8 +146,8 @@ else
 	ok "no script calls mmsg with dash-flags"
 fi
 
-# desktop-mode.sh kept reading $MANGO_DIR/state after the move and the mode
-# switch silently became one-way.
+# A script reading $MANGO_DIR/state after the move made the old mode switch
+# silently one-way.
 stale=$(grep -rn 'MANGO[_A-Z]*/state\|config/mango/state' "$SRC/dotfiles/mango/scripts/" 2>/dev/null |
 	grep -vE ':[0-9]+:[[:space:]]*#')
 if [[ -z $stale ]]; then
@@ -214,8 +190,14 @@ while read -r line; do
 		pk_bad+="  $name is wrapped — -x will never match: ${line%%:*}"$'\n'
 done < <(grep -rnE 'p(kill|grep) -x' "$SRC/dotfiles" 2>/dev/null | grep -vE ':[0-9]+:[[:space:]]*#')
 
+# None at all is the good outcome, so the floor is on the scan instead: it must
+# still see the plain `pkill` calls around it.
 if [[ $pk_n -eq 0 ]]; then
-	bad "no 'pkill -x'/'pgrep -x' found at all — the scan is broken, not the repo"
+	if grep -rqE 'p(kill|grep) ' "$SRC/dotfiles" 2>/dev/null; then
+		ok "no 'pkill -x'/'pgrep -x' in the dotfiles"
+	else
+		bad "no pkill or pgrep found at all — the scan is broken, not the repo"
+	fi
 elif [[ -z $pk_bad ]]; then
 	ok "all $pk_n 'pkill -x'/'pgrep -x' targets are unwrapped binaries"
 else
@@ -264,95 +246,8 @@ printf '\nRuntime-selected files\n'
 # weight that still looks maintained.
 MANGO="$SRC/dotfiles/mango"
 
-# The one lock path, checked in two places below: for the noctalia ipc call it
-# makes, and for the background pool it points at.
+# The one lock path, checked below for the background pool it points at.
 LOCKBIN="$GEN/home-path/bin/lockscreen"
-
-# Desktop mode. desktop-mode.sh validates against this list, so it is the
-# complete set of values current-mode can hold.
-mapfile -t MODES < <(
-	sed -n 's/^MODES=(\(.*\))$/\1/p' "$MANGO/scripts/desktop-mode.sh" | tr -d '"' | tr ' ' '\n' | sed '/^$/d'
-)
-if [[ ${#MODES[@]} -eq 0 ]]; then
-	bad "could not read MODES from desktop-mode.sh — the scan is broken, not the repo"
-else
-	missing=""
-	for m in "${MODES[@]}"; do
-		[[ -f "$MANGO/$m/$m.conf" ]] || missing+="  $m/$m.conf"$'\n'
-		[[ -f "$MANGO/scripts/modes/$m.sh" ]] || missing+="  scripts/modes/$m.sh"$'\n'
-	done
-	# And nothing surplus, in both directions: a <m>/<m>.conf naming no mode is
-	# a config nothing can select. (walker/configs/<m>.toml was the third
-	# per-mode file until 2026-08-14; rofi has one config for every mode.)
-	for d in "$MANGO"/*/; do
-		n=$(basename "$d")
-		[[ -f "$d/$n.conf" ]] || continue
-		printf '%s\n' "${MODES[@]}" | grep -qxF "$n" || missing+="  $n/$n.conf names no mode"$'\n'
-	done
-	if [[ -z $missing ]]; then
-		ok "each of the ${#MODES[@]} modes has its conf and its mode script, and no others exist"
-	else
-		bad "mode/file mismatch" "$missing"
-	fi
-fi
-
-# And every mode has a colour scheme, both ways. modules/home/dotfiles.nix
-# resolves each as `import ./themes/${modes.${mode}}.nix`, so a missing key is
-# already an eval error — what this catches is the direction eval cannot see: a
-# key naming no mode, which is a colour scheme nothing can ever select while
-# reading like a mode that exists. docs/adr/0034.
-mapfile -t MODE_KEYS < <(jq -r '.modes | keys[]' "$SCHEMES" 2>/dev/null)
-if [[ ${#MODE_KEYS[@]} -eq 0 ]]; then
-	bad "no modes read from modules/home/modes.nix — the scan is broken, not the repo"
-elif [[ ${#MODES[@]} -gt 0 ]]; then
-	memiss=""
-	for m in "${MODES[@]}"; do
-		printf '%s\n' "${MODE_KEYS[@]}" | grep -qxF "$m" || memiss+="  $m has no entry in modes.nix"$'\n'
-	done
-	for k in "${MODE_KEYS[@]}"; do
-		printf '%s\n' "${MODES[@]}" | grep -qxF "$k" || memiss+="  modes.nix names '$k', which is not a mode"$'\n'
-	done
-	if [[ -z $memiss ]]; then
-		ok "each of the ${#MODES[@]} modes has a colour scheme in modes.nix, and no others do"
-	else
-		bad "mode/scheme mismatch" "$memiss"
-	fi
-fi
-
-# The ceiling on how far modes.nix may diverge. wayle is the consumer not on
-# the runtime swap — its six layouts are generated once, palette and all, from
-# scheme.nix — and noctalia does not run it. So every other mode has to wear
-# the artefact scheme, or it gets a bar from a scheme it is not wearing.
-# waybar and swaync are what tiling runs. wayle held both jobs between
-# 2026-08-24 and 2026-08-27 and is still generated, still wearing this scheme,
-# but no mode starts it. docs/adr/0051.
-#
-#
-# noctalia may differ, and does: everything it runs — its own shell, mango's
-# chrome, kitty, foot, rofi, ncspot and Equibop — follows modes.nix.
-#
-# Derived from modes.nix rather than naming `tiling`, so a mode added later is
-# asserted with nothing to remember. Until hud left this also
-# had to check tiling and hud against each other, because two modes shared one
-# generated bar; with one bar-bearing mode that half is gone.
-#
-# If waybar or swaync ever needs to differ by mode, it joins the swap first;
-# this assertion is what makes that a decision rather than a silent half.
-barmodes=0
-barerr=""
-while IFS='|' read -r m msch; do
-	[[ -z $m || $m == noctalia ]] && continue
-	barmodes=$((barmodes + 1))
-	[[ $msch == "$PAL_SCHEME" ]] || barerr+="  $m wears '$msch'"$'\n'
-done < <(jq -r '.modes | to_entries[] | "\(.key)|\(.value)"' "$SCHEMES" 2>/dev/null)
-if [[ $barmodes -eq 0 ]]; then
-	bad "no bar-bearing mode read from modes.nix — the scan is broken, not the repo"
-elif [[ -n $barerr ]]; then
-	bad "a mode running waybar and swaync does not wear the artefact scheme '$PAL_SCHEME'" \
-		"those are generated once, from scheme.nix, so the mode would be half one scheme and half the other:"$'\n'"$barerr"
-else
-	ok "the $barmodes mode(s) running wayle wear '$PAL_SCHEME', which is what its layouts are generated from"
-fi
 
 # no_border_when_single=1 removes every tiled window's border on mango 0.16.0,
 # not just a lone one, and nothing says so. docs/gotchas.md → Desktop → mango
@@ -388,9 +283,6 @@ done < <(
 		# variable to expand — the scripts spell the path that way.
 		# shellcheck disable=SC2016
 		grep -rho '\$MANGO_DIR/scripts/[^" ]*' "$MANGO/scripts"
-		# mode.sh's `modes/$mode.sh` is decided at runtime and cannot be
-		# resolved here — and does not need to be: the mode/file check above
-		# already asserts a script exists for every value $mode can hold.
 	} | grep -v 'scripts/[^ ]*\$' | sort -u
 )
 
@@ -403,29 +295,20 @@ else
 fi
 
 # `mango-reload` restarts the BAR, and this one line is the whole reason it
-# does. Verified 2026-08-26 by PID, not by reading: wayle went 41365 -> 46310
-# across a `reload.sh`.
-#
-# reload.sh and desktop-mode.sh both end in `mmsg dispatch reload_config`, which
-# re-fires every `exec=` in the active mode's autostart.conf. NOTHING ELSE
-# starts or restarts wayle — `apply_mode` does not touch it and `mode.sh` only
-# execs the mode script. So this line silently becoming `exec-once=` leaves the
-# bar running its previous config after every reload, with the rest of the mode
-# applied around it. That is indistinguishable from the change having had no
-# effect, which is the symptom CLAUDE.md's "Rebuild before reload" describes.
-#
-# It is a plausible edit, not a far-fetched one: universal/autostart.conf is
-# `exec-once=` throughout, so making this match reads like tidying.
-BAR_AUTOSTART="$MANGO/tiling/autostart.conf"
+# does. `mmsg dispatch reload_config` re-fires every `exec=` and nothing else
+# restarts waybar, so this line silently becoming `exec-once=` leaves the bar
+# on its previous config after every reload — indistinguishable from the change
+# having had no effect. A plausible edit: the rest of the file is `exec-once=`.
+BAR_AUTOSTART="$MANGO/universal/autostart.conf"
 if [[ ! -s $BAR_AUTOSTART ]]; then
-	bad "tiling/autostart.conf is missing or empty — the scan is broken, not the repo" "$BAR_AUTOSTART"
+	bad "universal/autostart.conf is missing or empty — the scan is broken, not the repo" "$BAR_AUTOSTART"
 elif grep -qE '^exec=[^=]*waybar/waybar-restart\.sh' "$BAR_AUTOSTART"; then
-	ok "tiling/autostart.conf runs waybar-restart.sh as exec=, so reload_config restarts the bar"
+	ok "universal/autostart.conf runs waybar-restart.sh as exec=, so reload_config restarts the bar"
 elif grep -qE '^exec-once=.*waybar/waybar-restart\.sh' "$BAR_AUTOSTART"; then
-	bad "tiling/autostart.conf runs waybar-restart.sh as exec-once=, so mango-reload no longer restarts the bar" \
+	bad "universal/autostart.conf runs waybar-restart.sh as exec-once=, so mango-reload no longer restarts the bar" \
 		"reload_config re-fires exec= lines only — the bar would keep its previous config, silently"
 else
-	bad "nothing in tiling/autostart.conf runs waybar-restart.sh" \
+	bad "nothing in universal/autostart.conf runs waybar-restart.sh" \
 		"the bar would not start at login and mango-reload would not restart it"
 fi
 
@@ -443,12 +326,12 @@ fi
 #               how it sat for a month. The mask is deliberate
 #               (modules/home/default.nix) so autostart owns the lifecycle.
 #   waybar      the bar, checked above.
-#   swayosd     the only OSD in this mode. waybar has none, so volume,
+#   swayosd     the only OSD. waybar has none, so volume,
 #               brightness and the lock keys have no feedback without it — and
 #               no error either, since nothing calls swayosd-client.
 daemonbad=""
 grep -qE '^exec=.*swaync' "$BAR_AUTOSTART" ||
-	daemonbad+="  tiling/autostart.conf does not start swaync — every swaync-client call exits 0 having done nothing"$'\n'
+	daemonbad+="  universal/autostart.conf does not start swaync — every swaync-client call exits 0 having done nothing"$'\n'
 grep -qE '^exec-once=.*swayosd-server' "$MANGO/universal/autostart.conf" ||
 	daemonbad+="  universal/autostart.conf does not start swayosd-server — no volume, brightness or caps-lock feedback anywhere"$'\n'
 if [[ -n $daemonbad ]]; then
@@ -457,101 +340,62 @@ else
 	ok "swaync and swayosd are both started by an autostart line"
 fi
 
-# --- Daemons that are not there any more -------------------------------------
+# --- Programs that are not there any more -----------------------------------
 #
-# Two ways of talking to a program that has been retired, both of which look
-# exactly like success. Absence checks, so the floor is on the population: a
-# scan over no scripts finds nothing and passes.
-#
-# WAYLE IS THE RETIRED ONE NOW (docs/adr/0051). It is still installed and its
-# CLI still exists, so every call below builds, runs, and fails at a socket that
-# nothing is listening on:
-#
-#   wayle <verb>            `wayle notify`, `wayle wallpaper`. Nothing starts
-#                           wayle since tiling/autostart.conf stopped doing so,
-#                           and the CLI's failure is a message on a stderr no
-#                           keybind reads. Four call sites moved to
-#                           swaync-client and awww; this is what keeps a fifth
-#                           from arriving.
-#
-# scripts/wayle/* IS EXCLUDED, deliberately: those three are the by-hand path
-# back to wayle and calling it is their entire job — the same exception
-# noctalia-start.sh has always had for running `swaync`.
-#
-# The two patterns this replaced were `pkill -RTMIN+N waybar` and
-# `swaync-client`, retired between 2026-08-24 and 2026-08-26. BOTH ARE LIVE
-# AGAIN and are asserted above instead, from the other end: that something
-# starts the daemon they talk to.
-#
-# COMMENTS ARE STRIPPED FIRST, and that is the deliberate half. Every one of the
-# six removals left a comment saying which line went and why — this repo's whole
-# convention — so a scan that matched anywhere in the file would fire on its own
-# documentation. A commented-out call is not a call.
+# noctalia and wayle are removed (docs/adr/0061). A call to either exits 127
+# on a stderr no keybind reads, so a fifth call site arriving would look
+# installed. COMMENTS ARE STRIPPED FIRST: every removal left a comment saying
+# what went, and a scan over the whole file would fire on its own history.
 retired=""
 for f in "${SCRIPTS[@]}"; do
 	case "$f" in "$MANGO"/* | "$SRC"/dotfiles/scripts/*) ;; *) continue ;; esac
 	code=$(sed 's/#.*//' "$f")
 	# `if`, not `grep … && retired+=`: a bare `a && b` whose `a` fails fails the
 	# statement, which would exit under a `set -e` this file does not have yet.
-	case "$f" in "$MANGO"/scripts/wayle/*) continue ;; esac
-	if grep -qE '(^|[^-[:alnum:]_])wayle [a-z]' <<<"$code"; then
-		retired+="  ${f#"$SRC"/} calls the wayle CLI, and nothing starts wayle — it fails at a socket, on a stderr no keybind reads"$'\n'
+	if grep -qE '(^|[^-[:alnum:]_])(wayle|noctalia-shell) [a-z]' <<<"$code"; then
+		retired+="  ${f#"$SRC"/}"$'\n'
 	fi
 done
 if [[ -n $retired ]]; then
-	bad "a script still talks to a daemon this machine does not run" "$retired"
+	bad "a script still calls wayle or noctalia-shell, which are not installed" "$retired"
 else
-	ok "no script outside scripts/wayle/ calls the wayle CLI"
+	ok "no script calls wayle or noctalia-shell"
 fi
 
 # Two binds on one key: mango prints `[warning] Key binding conflict` naming
 # both files and lines, then runs whichever was parsed first (src/mango.c,
 # "only match the first keybind"). That warning goes to mango's stderr, where
 # nothing reads it — so the second bind looks installed and never fires. Built
-# per mode from the `source=` lines of its own conf, which is exactly the set
-# mango parses. Keys are lowercased first: the dispatcher compares with
+# from the `source=` lines of config.conf, which is exactly the set mango
+# parses. Keys are lowercased first: the dispatcher compares with
 # xkb_keysym_to_lower(), so `SUPER,O` and `SUPER,o` are one key, not two.
-if [[ ${#MODES[@]} -gt 0 ]]; then
-	duperr=""
-	# The floor is on binds seen, not modes seen, and that distinction is the
-	# whole point. `srcs` is built by matching the literal `source=./`; change
-	# that spelling and it comes back empty, the inner loop does nothing, and a
-	# per-mode counter still increments — so the scan would drop from 117 binds
-	# to 2 and print `ok`. That is the Phase 4 class inside the gate itself.
-	binds_seen=0
-	for m in "${MODES[@]}"; do
-		conf="$MANGO/$m/$m.conf"
-		[[ -f $conf ]] || continue
-		mapfile -t srcs < <(sed -n 's|^source=\./||p' "$conf")
-		mapfile -t binds < <(
-			for s in "${srcs[@]}"; do
-				[[ -f "$MANGO/$s" ]] && grep -h '^bind=' "$MANGO/$s"
-			done
-			grep -h '^bind=' "$conf"
-		)
-		binds_seen=$((binds_seen + ${#binds[@]}))
-		dups=$(
-			printf '%s\n' "${binds[@]}" |
-				cut -d, -f1,2 | tr '[:upper:]' '[:lower:]' | sort | uniq -d
-		)
-		[[ -n $dups ]] && duperr+="  $m: $(echo "$dups" | tr '\n' ' ')"$'\n'
+#
+# The floor is on binds seen: `srcs` matches the literal `source=./`, so a
+# change of spelling would empty it and the scan would pass over nothing.
+conf="$MANGO/config.conf"
+mapfile -t srcs < <(sed -n 's|^source=\./||p' "$conf" 2>/dev/null)
+mapfile -t binds < <(
+	for s in "${srcs[@]}"; do
+		[[ -f "$MANGO/$s" ]] && grep -h '^bind=' "$MANGO/$s"
 	done
-	# Set well under today's count so removing a bind is a code change, not a
-	# check failure — but far enough above the per-mode residue that a broken
-	# `source=` scan cannot clear it.
-	if [[ $binds_seen -lt 40 ]]; then
-		bad "only $binds_seen binds read across ${#MODES[@]} modes — the scan is broken, not the repo"
-	elif [[ -z $duperr ]]; then
-		ok "no key is bound twice across the $binds_seen binds in ${#MODES[@]} modes"
-	else
-		bad "a key is bound twice — mango warns to a stderr nobody reads, then runs the first" "$duperr"
-	fi
+	grep -h '^bind=' "$conf"
+)
+dups=$(
+	printf '%s\n' "${binds[@]}" |
+		cut -d, -f1,2 | tr '[:upper:]' '[:lower:]' | sort | uniq -d
+)
+if [[ ${#binds[@]} -lt 40 ]]; then
+	bad "only ${#binds[@]} binds read from config.conf's sources — the scan is broken, not the repo"
+elif [[ -z $dups ]]; then
+	ok "no key is bound twice across the ${#binds[@]} binds config.conf sources"
+else
+	bad "a key is bound twice — mango warns to a stderr nobody reads, then runs the first" "$(echo "$dups" | tr '\n' ' ')"
 fi
 
 # scripts/menus/shell.sh is a selector like any other (docs/adr/0014): a bind
 # naming an action its case table lacks hits the `usage:` branch on a stderr
-# nobody reads, and an action in the table that no bind names is a mode-specific
-# path nothing can reach — the shape that hid four unreachable files here. Both
+# nobody reads, and an action in the table that no bind names is a path
+# nothing can reach — the shape that hid four unreachable files here. Both
 # directions, and both sides must be non-empty.
 # `^bind=` first, then the action: an unfiltered scan reads the prose in the
 # comments too, and "shell.sh rather than calling" duly arrived as an action
@@ -560,13 +404,12 @@ mapfile -t BIND_ACTIONS < <(
 	grep -rh '^bind=' "$MANGO" --include='*.conf' |
 		grep -oE 'menus/shell\.sh [a-z-]+' | awk '{print $2}' | sort -u
 )
-# awk, not sed: shfmt splits `foo) ipc="x" ;;` onto separate lines, so the arm
-# label and its `ipc=` no longer share one. Keyed on the label, which is what
-# a bind actually names.
+# Keyed on the arm label, which is what a bind actually names, and only where
+# the arm calls one of the file's `do_` functions.
 mapfile -t TABLE_ACTIONS < <(
 	awk '
 		/^[a-z][a-z-]*\)$/ { arm = substr($0, 1, length($0) - 1); next }
-		arm != "" && $0 ~ /^[[:space:]]*ipc=/ { print arm; arm = "" }
+		arm != "" && $0 ~ /^[[:space:]]*do_/ { print arm; arm = "" }
 	' "$MANGO/scripts/menus/shell.sh" | sort -u
 )
 if [[ ${#BIND_ACTIONS[@]} -eq 0 || ${#TABLE_ACTIONS[@]} -eq 0 ]]; then
@@ -784,48 +627,16 @@ if [[ -f $WEATHER_SH ]]; then
 		fi
 	fi
 
-	# NO SIGNAL CHECK. It read `pkill -RTMIN+13 waybar` out of this script and
-	# matched it against custom/weather's `signal` in the generated waybar
-	# config. Both ends are gone: wayle takes no signal, so that line matched
-	# nothing and returned 1 (docs/adr/0047). There is nothing left to agree.
-
-	# 2. THE PANEL IS REACHABLE, AND IT IS THIS ONE. `weather.sh panel` replaced
-	#    wayle's `dropdown:weather` on 2026-08-26 (docs/adr/0050). Three ways
-	#    that goes wrong in silence, so three assertions:
-	#
-	#      - the verb disappears from weather.sh and every caller opens nothing
-	#      - a layout still names `dropdown:weather`, which is a SECOND panel,
-	#        complete and plausible and at wayle's default San Francisco once
-	#        `[modules.weather]` came out with the click that read it
-	#      - the key stops naming the verb, and the only way in is the bar again
-	#
-	#    wayle's own default for `clock.right-click` IS `dropdown:weather`, so
-	#    the second one is what happens by leaving a key unwritten, not by
-	#    writing a wrong one.
+	# 2. THE PANEL IS REACHABLE. `weather.sh panel` is the detailed reading
+	#    (docs/adr/0050), and two things lose it in silence: the verb
+	#    disappearing from weather.sh, and the key or the bar click no longer
+	#    naming it.
 	panelbad=""
-	panelseen=0
 	sed -n '/^case "${1:-status}" in$/,/^esac$/p' "$WEATHER_SH" | grep -q '^panel)' ||
 		panelbad+="  weather.sh has no 'panel' verb — every caller below opens nothing"$'\n'
-	for f in "$WAYLE_DIR"/layouts/*.toml; do
-		[[ -s $f ]] || continue
-		panelseen=$((panelseen + 1))
-		if grep -q 'dropdown:weather' "$f"; then
-			panelbad+="  ${f##*/}: still opens wayle's weather dropdown, which is now unconfigured"$'\n'
-		fi
-		if grep -q '^\[modules\.weather\]' "$f"; then
-			panelbad+="  ${f##*/}: carries [modules.weather] for a dropdown nothing opens"$'\n'
-		fi
-		# A layout without custom-weather (`minimal`) has no click to check, and
-		# that is the layout deliberately dropping the module.
-		if grep -q 'id = "weather"' "$f" &&
-			! grep -A8 'id = "weather"' "$f" | grep -q 'left-click = ".*weather\.sh panel"'; then
-			panelbad+="  ${f##*/}: custom-weather's left click no longer opens the panel"$'\n'
-		fi
-	done
 	grep -q 'weather\.sh panel' "$MANGO/universal/bind-shared.conf" ||
 		panelbad+="  no key opens the panel — bind-shared.conf does not name the verb"$'\n'
-	# WAYBAR IS THE BAR IN SERVICE (docs/adr/0051), so its click is the one that
-	# matters. `on-click` ran `refresh` until 2026-08-26 — a fetch whose only
+	# `on-click` ran `refresh` until 2026-08-26 — a fetch whose only
 	# output is a two-digit label, i.e. a click that appears to do nothing.
 	#
 	# jq, not sed: `"format": "{}"` puts a closing brace inside a STRING, so a
@@ -843,12 +654,10 @@ if [[ -f $WEATHER_SH ]]; then
 	done
 	[[ $wbseen -gt 0 ]] ||
 		panelbad+="  no waybar config carries custom/weather — the scan is broken, not the repo"$'\n'
-	if [[ $panelseen -eq 0 ]]; then
-		bad "no wayle layout read — the scan is broken, not the repo" "$WAYLE_DIR/layouts"
-	elif [[ -n $panelbad ]]; then
+	if [[ -n $panelbad ]]; then
 		bad "the weather panel is not the one this repo draws" "$panelbad"
 	else
-		ok "$wbseen waybar configs, $panelseen wayle layouts and one key open weather.sh's rofi panel"
+		ok "$wbseen waybar configs and one key open weather.sh's rofi panel"
 	fi
 
 	# 3. THE CONTROL-CENTRE ROW MUST NOT FETCH. That render is parallel and
@@ -942,11 +751,6 @@ if [[ -f $WEATHER_SH ]]; then
 			jq -r '.["custom/weather"] | to_entries[] | .value | strings' \
 				"$WAYBAR_DIR/config-full-top.jsonc" 2>/dev/null |
 				grep -oE 'weather\.sh [a-z]+'
-			# WAYLE'S LAYOUTS TOO, and they are the bar in service — the waybar
-			# config above is the one this scan read alone until 2026-08-26,
-			# which left every click on the running bar unchecked. Four of the
-			# five verbs are reached from here.
-			grep -hoE 'weather\.sh [a-z]+' "$WAYLE_DIR"/layouts/*.toml 2>/dev/null
 			# The closing quote is load-bearing here: "a class weather.sh does
 			# not emit" is a sentence in that file, and `does` is not a verb.
 			grep -oE 'weather\.sh" [a-z]+' "$CC" 2>/dev/null
@@ -987,332 +791,18 @@ if [[ -f $WEATHER_SH ]]; then
 	fi
 fi
 
-# --- noctalia mode ----------------------------------------------------------
-# All of this is gated on the mode's directory existing, so removing noctalia
-# (docs/SYSTEM.md §6) removes the checks with it rather than leaving three
-# failures behind. Inside the gate nothing is allowed to skip.
-if [[ -d "$MANGO/noctalia" ]]; then
-	# The mode without the package is a mode that starts nothing. Resolve the
-	# store path off the binary rather than looking under $SYS/sw/share:
-	# environment.pathsToLink does not link share/noctalia-shell, so the QML
-	# and the Assets are reachable only through the package itself.
-	NOCT_BIN="$SYS/sw/bin/noctalia-shell"
-	NOCT_SHARE=""
-	if [[ ! -x $NOCT_BIN ]]; then
-		bad "the noctalia mode exists but noctalia-shell is not in the system profile" "$NOCT_BIN"
-	else
-		NOCT_SHARE="$(readlink -f "$NOCT_BIN")"
-		NOCT_SHARE="${NOCT_SHARE%/bin/noctalia-shell}/share/noctalia-shell"
-		[[ -d $NOCT_SHARE ]] || {
-			bad "noctalia-shell has no share/noctalia-shell — the scan is broken, not the repo" "$NOCT_SHARE"
-			NOCT_SHARE=""
-		}
-	fi
-
-	# noctalia IGNORES a settings key it does not know, in silence, so a key
-	# renamed upstream stops applying and reads exactly like a key that was
-	# never set. Both halves of docs/adr/0022 are checked: the first-run seed
-	# and the pin merged on every mode entry.
-	if [[ -n $NOCT_SHARE ]]; then
-		defaults="$NOCT_SHARE/Assets/settings-default.json"
-		if [[ ! -f $defaults ]]; then
-			bad "noctalia ships no Assets/settings-default.json — the scan is broken, not the repo"
-		else
-			# settings.json is hand-written under dotfiles/; settings-pinned.json
-			# is GENERATED, because one of its keys is the colour scheme's name.
-			# Both are read from where they actually land, not from one place.
-			keyerr=""
-			keys=0
-			for f in "$MANGO/noctalia/settings.json" \
-				"$GEN_CFG/mango/noctalia/settings-pinned.json"; do
-				n=$(jq -r '[paths] | length' "$f" 2>/dev/null || echo 0)
-				keys=$((keys + n))
-				while read -r p; do
-					[[ -z $p ]] && continue
-					keyerr+="  $(basename "$f"): $p is not a key noctalia has"$'\n'
-				done < <(
-					jq -r --slurpfile d "$defaults" \
-						'paths as $p | select(($d[0] | getpath($p)) == null) | $p | join(".")' \
-						"$f" 2>/dev/null
-				)
-			done
-			if [[ $keys -eq 0 ]]; then
-				bad "no keys read from the noctalia settings files — the scan is broken, not the repo"
-			elif [[ -z $keyerr ]]; then
-				ok "all $keys noctalia settings keys exist in the shipped defaults"
-			else
-				bad "noctalia settings key mismatch" "$keyerr"
-			fi
-
-			# A scheme name that resolves to no file leaves the shell on
-			# whatever it last loaded — the machine ends up half this palette and
-			# half noctalia purple, which looks like a theme, not a fault.
-			# Resolution mirrors ColorSchemeService.resolveSchemePath().
-			scheme=$(jq -r '.colorSchemes.predefinedScheme // empty' \
-				"$GEN_CFG/mango/noctalia/settings-pinned.json" 2>/dev/null)
-			case "$scheme" in
-			"Noctalia (default)") schemedir="Noctalia-default" ;;
-			"Noctalia (legacy)") schemedir="Noctalia-legacy" ;;
-			"Tokyo Night") schemedir="Tokyo-Night" ;;
-			"Rose Pine") schemedir="Rosepine" ;;
-			*) schemedir="$scheme" ;;
-			esac
-			# TWO places it may live, because a scheme no longer has to be one
-			# noctalia ships: `ColorSchemeService` scans the package's Assets AND
-			# `~/.config/noctalia/colorschemes`, and dotfiles.nix writes the mode
-			# scheme into the second (docs/adr/0041). Heartbox is the first scheme
-			# here that exists only in the generation.
-			noct_gen="$GEN_CFG/noctalia/colorschemes/$schemedir/$schemedir.json"
-			if [[ -z $scheme ]]; then
-				bad "no predefinedScheme pinned — noctalia would keep its own palette while the rest of the machine follows palette.nix"
-			elif [[ -f "$NOCT_SHARE/Assets/ColorScheme/$schemedir/$schemedir.json" ]]; then
-				ok "noctalia's pinned colour scheme ($scheme) ships with the package"
-			elif [[ -s $noct_gen ]]; then
-				# Generated, so it is worth asserting it is a SCHEME and not just a
-				# file: noctalia reads `.dark` or `.light` by darkMode and renders
-				# whatever it finds, so an object missing the half in use leaves the
-				# shell on its last palette without a word.
-				nsch_bg=$(jq -r '.dark.mSurface // empty' "$noct_gen" 2>/dev/null)
-				nsch_keys=$(jq -r '(.dark | keys | length) // 0' "$noct_gen" 2>/dev/null)
-				want_bg="#$(pal '.bg0')"
-				if [[ $nsch_keys -lt 16 ]]; then
-					bad "noctalia's generated scheme ($scheme) has $nsch_keys keys under .dark, expected at least 16" \
-						"$noct_gen — noctalia renders what it finds and falls back for the rest"
-				elif [[ ${nsch_bg,,} != "${want_bg,,}" ]]; then
-					bad "noctalia's generated scheme ($scheme) has mSurface $nsch_bg, not $want_bg" \
-						"the shell would be a different scheme from the mango chrome around it"
-				else
-					ok "noctalia's pinned colour scheme ($scheme) is generated into the config, with $nsch_keys keys"
-				fi
-			else
-				bad "noctalia has no colour scheme named $scheme" \
-					"neither Assets/ColorScheme/$schemedir/$schemedir.json nor $noct_gen"
-			fi
-
-			# And it must be the scheme modes.nix gives the noctalia MODE, not the
-			# artefact one. Both halves of that mode's colour now come from the same
-			# line — the shell's own palette here, mango's chrome in
-			# colors-noctalia.conf — and they are generated in different languages in
-			# different files, which is the gap a scheme change walks into. A drift
-			# here is a shell in one scheme inside borders in another, and that reads
-			# as a design rather than a fault. docs/adr/0034.
-			nsch=$(jq -r '.modes.noctalia // empty' "$SCHEMES" 2>/dev/null)
-			nwant=$(jq -r ".schemes.\"$nsch\".apps.noctalia // empty" "$SCHEMES" 2>/dev/null)
-			if [[ -z $nsch || -z $nwant ]]; then
-				bad "could not read the noctalia mode's scheme from modes.nix" \
-					"mode='$nsch' name='$nwant' — the agreement below would be asserted about nothing"
-			elif [[ $scheme != "$nwant" ]]; then
-				bad "noctalia pins '$scheme' but modes.nix gives its mode '$nsch' (= '$nwant')" \
-					"the shell and the mango chrome drawn around it would be in different schemes"
-			else
-				ok "noctalia's pinned scheme matches modes.nix's '$nsch' for its mode"
-			fi
-
-			# noctalia's TEMPLATE engine stays off, and that is a decision with a
-			# record: docs/adr/0036. Asserted rather than merely written, because
-			# its symptom is not an error — a template renders a sidecar and its
-			# post-hook edits the app's real config to point at it, so enabling
-			# one puts a second writer on `kitty/current-theme.conf` and
-			# `foot/themes/noctalia` (both apply_theme's, docs/adr/0034), and the
-			# gtk/mango/yazi hooks REPLACE a read-only store symlink with a local
-			# copy. Nothing crashes; the repo just stops owning the file.
-			#
-			# Blunt on purpose: any non-empty list fails, not a blocklist of the
-			# harmful names. A blocklist needs updating whenever upstream adds a
-			# template and passes by finding nothing when one is renamed.
-			tmpl_on=$(jq -r '.templates.enableUserTheming // false' \
-				"$GEN_CFG/mango/noctalia/settings-pinned.json" 2>/dev/null)
-			tmpl_n=$(jq -r '(.templates.activeTemplates // []) | length' \
-				"$GEN_CFG/mango/noctalia/settings-pinned.json" 2>/dev/null)
-			if [[ -z $tmpl_on || -z $tmpl_n ]]; then
-				bad "could not read noctalia's templates pin — the scan is broken, not the repo" \
-					"enableUserTheming='$tmpl_on' activeTemplates='$tmpl_n'"
-			elif [[ $tmpl_on != false ]]; then
-				bad "noctalia pins enableUserTheming=$tmpl_on" \
-					"its templates write kitty's and foot's colours, which apply_theme owns — docs/adr/0036"
-			elif [[ $tmpl_n -ne 0 ]]; then
-				bad "noctalia pins $tmpl_n active template(s)" \
-					"every one either writes a path apply_theme owns or a file nothing here reads — docs/adr/0036"
-			else
-				ok "noctalia's template engine is off and its template list is empty"
-			fi
-		fi
-	fi
-
-	# `noctalia-shell ipc call <target> <fn>` prints "Target not found." or
-	# "Function not found." and EXITS 0 — the dwl-era `mmsg -s -d` shape, which
-	# broke five scripts here without a word. The names live in shell.sh's case
-	# table and in the `lockscreen` wrapper; the shell declares them as
-	# `IpcHandler { target: … function x() }` in its QML. Neither side can see
-	# the other, so pair them here.
-	#
-	# The wrapper is scanned as a BUILT script rather than as a source file:
-	# it is generated in pkgs/default.nix, and the unattended lock is the one
-	# caller nobody is watching when it fails (docs/adr/0024).
-	if [[ -n $NOCT_SHARE ]]; then
-		SHELL_SH="$MANGO/scripts/menus/shell.sh"
-		mapfile -t IPC_WRAPPER < <(
-			sed -n 's/.*noctalia-shell ipc call \([A-Za-z]* [A-Za-z]*\).*/\1/p' \
-				"$LOCKBIN" 2>/dev/null
-		)
-		mapfile -t IPC_PAIRS < <(
-			{
-				# Anchored on `ipc=` alone: the arm label it used to share a
-				# line with moved when shfmt split the case arms, and it was
-				# never what this scan wanted anyway.
-				sed -n 's/^[[:space:]]*ipc="\([^"]*\)".*/\1/p' "$SHELL_SH"
-				printf '%s\n' "${IPC_WRAPPER[@]}"
-			} | grep . | sort -u
-		)
-		if [[ ${#IPC_PAIRS[@]} -eq 0 ]]; then
-			bad "no ipc pairs read from shell.sh — the scan is broken, not the repo"
-		elif [[ ${#IPC_WRAPPER[@]} -eq 0 ]]; then
-			# The wrapper's own floor. Without it the pairs all come from
-			# shell.sh and the check passes by finding nothing, while the
-			# unattended lock has quietly gone back to swaylock in noctalia mode
-			# — a difference you only see at 3am, on the screen you are trying
-			# to unlock.
-			bad "lockscreen makes no noctalia ipc call — the sleep lock is no longer noctalia's in noctalia mode" \
-				"$LOCKBIN"
-		else
-			mapfile -t IPC_QML < <(grep -rl 'IpcHandler' "$NOCT_SHARE")
-			ipcerr=""
-			for pair in "${IPC_PAIRS[@]}"; do
-				t=${pair%% *}
-				f=${pair##* }
-				# The function must be inside THAT target's block. Two
-				# independent greps would pass `dock clear`, since some other
-				# target does declare `clear`. `intgt` is recomputed on every
-				# `target:` line, so it closes at the next one.
-				awk -v t="$t" -v f="$f" '
-					/target: "/ { intgt = ($0 ~ "target: \"" t "\"") }
-					intgt && $0 ~ "function " f "\\(" { found = 1; exit }
-					END { exit !found }
-				' "${IPC_QML[@]}" ||
-					ipcerr+="  $t $f is called by shell.sh but noctalia has no such handler"$'\n'
-			done
-			if [[ -z $ipcerr ]]; then
-				ok "all ${#IPC_PAIRS[@]} noctalia ipc calls name a handler the shell declares"
-			else
-				bad "noctalia ipc mismatch" "$ipcerr"
-			fi
-		fi
-	fi
-
-	# The overlay rewrites noctalia's dwl-era `mmsg -s -d <func>` to mango's verb
-	# form (docs/adr/0025). Both halves of that can rot in silence: the patch
-	# could stop applying, and a verb could stop being a function mango has —
-	# `mmsg` answers an unknown one with `{"error":…}` and exits 0, which is the
-	# failure the patch exists to remove, not a new one.
-	if [[ -n $NOCT_SHARE ]]; then
-		MANGO_BIN="$SYS/sw/bin/mango"
-		mapfile -t MMSG_FUNCS < <(
-			grep -ohE 'mmsg", "dispatch", "[a-z_]+|mmsg dispatch [a-z_]+' \
-				"$NOCT_SHARE/Services/Compositor/MangoService.qml" 2>/dev/null |
-				grep -oE '[a-z_]+$' | sort -u
-		)
-		if [[ ${#MMSG_FUNCS[@]} -lt 5 ]]; then
-			# The floor. An unapplied patch leaves every call in the flag form,
-			# so this list empties rather than mismatching — the launcher would
-			# go back to doing nothing at all, reported by nobody.
-			bad "only ${#MMSG_FUNCS[@]} mmsg verb calls in MangoService.qml, expected 5 — the overlay patch is not applied" \
-				"$NOCT_SHARE/Services/Compositor/MangoService.qml"
-		elif [[ ! -e $MANGO_BIN ]]; then
-			bad "no mango binary to check the verbs against — the scan is broken, not the repo" "$MANGO_BIN"
-		else
-			# mango's own strings are the function table. Extracting whole
-			# tokens rather than grepping for each name means `quit` cannot
-			# match inside `quitting`.
-			#
-			# Through a FILE, not a pipe into `grep -q`: `-q` exits at the first
-			# match, which SIGPIPEs the writer part-way through a 2,000-line
-			# list. That is noise on a hit and a WRONG ANSWER on a miss, since
-			# the reader never sees the rest.
-			mango_words="${TMPDIR:-/tmp}/mango-words.$$"
-			grep -aoE '[a-z_]{3,}' "$MANGO_BIN" | sort -u >"$mango_words"
-			mmsgerr=""
-			for f in "${MMSG_FUNCS[@]}"; do
-				grep -qxF "$f" "$mango_words" ||
-					mmsgerr+="  $f is dispatched by noctalia but mango declares no such function"$'\n'
-			done
-			rm -f "$mango_words"
-			if [[ -z $mmsgerr ]]; then
-				ok "all ${#MMSG_FUNCS[@]} mmsg verbs noctalia dispatches are functions mango has"
-			else
-				bad "noctalia dispatches a function mango does not have" "$mmsgerr"
-			fi
-		fi
-
-		# The lock wrapper calls `noctalia-shell ipc call` by absolute path, and
-		# quickshell resolves an instance by the shell.qml PATH it was started
-		# from — so a wrapper built against a DIFFERENT derivation than the unit
-		# runs finds "No running instances" and hands every unattended lock back
-		# to swaylock (docs/adr/0024, 0025). One `prev.` where a `final.` belongs
-		# is all it takes, and at runtime that is indistinguishable from noctalia
-		# simply being down.
-		lock_noct=$(grep -oE '/nix/store/[^ :"]*noctalia-shell[^ :"]*/bin' "$LOCKBIN" 2>/dev/null | head -1)
-		sys_noct=$(readlink -f "$SYS/sw/bin/noctalia-shell" 2>/dev/null)
-		if [[ -z $lock_noct ]]; then
-			bad "lockscreen has no noctalia-shell on its PATH — its ipc call would exit 127" "$LOCKBIN"
-		elif [[ ${sys_noct%/bin/noctalia-shell} != "${lock_noct%/bin}" ]]; then
-			bad "lockscreen and the system disagree on which noctalia-shell — the lock ipc will never find the running shell" \
-				"$lock_noct vs $sys_noct"
-		else
-			ok "lockscreen's noctalia-shell is the one the unit runs"
-		fi
-	fi
-
-	# Three files must agree on one unit name — the home-manager unit,
-	# night-mode.sh's `UNIT=`, and the stop in noctalia-start.sh — and nothing
-	# errors when they stop: `is-active` answers "inactive" for a unit that does
-	# not exist, so the guard silently stops matching. docs/adr/0037.
-	NOCT_START="$MANGO/scripts/modes/noctalia-start.sh"
-	NIGHT_SH="$MANGO/scripts/menus/night-mode.sh"
-	nl_unit=$(sed -n 's/^UNIT=\([A-Za-z0-9@._-]*\).*/\1/p' "$NIGHT_SH" | head -1)
-	if [[ -z $nl_unit ]]; then
-		bad "no UNIT= read from night-mode.sh — the scan is broken, not the repo" "$NIGHT_SH"
-	elif [[ ! -f "$GEN_CFG/systemd/user/$nl_unit" ]]; then
-		bad "night-mode.sh drives $nl_unit but the generation has no such user unit" \
-			"$GEN_CFG/systemd/user/$nl_unit"
-	elif ! grep -q "systemctl --user stop ${nl_unit%.service}" "$NOCT_START"; then
-		bad "noctalia mode does not stop $nl_unit — night light would stay on in the one mode that cannot reach it" \
-			"$NOCT_START"
-	elif grep -v '^[[:space:]]*#' "$NOCT_START" | grep -q "pkill.*${nl_unit%.service}"; then
-		# Restart=always undoes a kill three seconds later — docs/gotchas.md →
-		# night light. Comments stripped first: the script explains that
-		# noctalia pkills wlsunset, and this matched that sentence.
-		bad "noctalia-start.sh pkills ${nl_unit%.service}; Restart=always brings it straight back" \
-			"$NOCT_START"
-	else
-		ok "noctalia mode stops $nl_unit, the unit night-mode.sh drives"
-	fi
-
-	# `layerrule=…,layer_name:X` naming a namespace nothing creates is a rule
-	# that never fires and never says so — the same class as the rofi layer
-	# rules that matched nothing for months. noctalia's
-	# namespaces are `<name>-<screen>`, so the configs carry an anchored prefix
-	# and this asserts the prefix still matches a namespace the shipped QML
-	# declares.
-	if [[ -n $NOCT_SHARE ]]; then
-		mapfile -t NOCT_LAYERS < <(
-			grep -rhoE 'layer_name:\^?noctalia[a-z-]*' "$MANGO" --include='*.conf' |
-				sed 's/^layer_name:\^\?//' | sort -u
-		)
-		if [[ ${#NOCT_LAYERS[@]} -eq 0 ]]; then
-			bad "no noctalia layer rules found — mango would double every panel animation noctalia plays"
-		else
-			layererr=""
-			for l in "${NOCT_LAYERS[@]}"; do
-				grep -rqF "namespace: \"$l" "$NOCT_SHARE" ||
-					layererr+="  $l matches no namespace noctalia declares"$'\n'
-			done
-			if [[ -z $layererr ]]; then
-				ok "every noctalia layer rule (${#NOCT_LAYERS[@]}) matches a namespace the shell declares"
-			else
-				bad "noctalia layer rule mismatch" "$layererr"
-			fi
-		fi
-	fi
+# night-mode.sh's `UNIT=` must name a unit the generation has, and nothing
+# errors when it stops: `is-active` answers "inactive" for a unit that does not
+# exist, so the toggle silently stops matching.
+NIGHT_SH="$MANGO/scripts/menus/night-mode.sh"
+nl_unit=$(sed -n 's/^UNIT=\([A-Za-z0-9@._-]*\).*/\1/p' "$NIGHT_SH" | head -1)
+if [[ -z $nl_unit ]]; then
+	bad "no UNIT= read from night-mode.sh — the scan is broken, not the repo" "$NIGHT_SH"
+elif [[ ! -f "$GEN_CFG/systemd/user/$nl_unit" ]]; then
+	bad "night-mode.sh drives $nl_unit but the generation has no such user unit" \
+		"$GEN_CFG/systemd/user/$nl_unit"
+else
+	ok "night-mode.sh drives $nl_unit, which the generation declares"
 fi
 
 # --- power profiles ---------------------------------------------------------
@@ -1427,7 +917,7 @@ else
 	#    name at startup and, finding it unowned, tries to ACTIVATE it — then
 	#    gives up for the life of the process when that fails. Observed exactly
 	#    once, on the first live run: "The name is not activatable", after which
-	#    every noctalia profile call returned early and printed nothing.
+	#    every profile call a client made returned early and printed nothing.
 	PPD_ACT="$PPD_PKG/share/dbus-1/system-services/$PPD_NAME.service"
 	if [[ -z $PPD_PKG ]]; then
 		bad "could not resolve the power-profiles-tlp package from the unit — the scan is broken, not the repo"
@@ -1567,7 +1057,7 @@ printf '\nMango config parse\n'
 # Fake HOME and NO `-c`, which reproduces production exactly. Two traps this
 # sidesteps rather than manages:
 #   -c FILE  relative sources resolve against dirname(cli_config_path), so
-#            pointing it at a mode conf reports all 20 source= lines missing.
+#            pointing it elsewhere reports every source= line missing.
 #   -p -c    getopt returns on -p mid-parse (mango.c:7797), so `mango -p -c F`
 #            validates the LIVE config and exits 0 having never seen F.
 # The binary comes from the system profile, not a build input: this has to be
@@ -1575,45 +1065,20 @@ printf '\nMango config parse\n'
 MANGO_BIN="$SYS/sw/bin/mango"
 if [[ ! -x $MANGO_BIN ]]; then
 	bad "no mango in the system profile — there is no compositor" "$MANGO_BIN"
-elif [[ ${#MODES[@]} -eq 0 ]]; then
-	bad "no modes to parse — the scan is broken, not the repo"
+elif [[ ! -f "$GEN_CFG/mango/config.conf" ]]; then
+	bad "mango/config.conf is not in the generation — mango would start with no binds" "$GEN_CFG/mango/config.conf"
 else
 	MHOME=$(mktemp -d)
 	mkdir -p "$MHOME/.config"
-	# --no-preserve=mode because the copied DIRECTORY is 0555 otherwise, and
-	# nothing — not even a symlink — can be created inside it.
+	# --no-preserve=mode because the copied DIRECTORY is 0555 otherwise.
 	cp -r --no-preserve=mode "$GEN_CFG/mango" "$MHOME/.config/mango"
-
-	parse_err=""
-	parsed=0
-	for m in "${MODES[@]}"; do
-		src="$MHOME/.config/mango/$m/$m.conf"
-		if [[ ! -f $src ]]; then
-			parse_err+="  $m/$m.conf is not in the generation"$'\n'
-			continue
-		fi
-		# A link, matching apply_mode (docs/adr/0040). Staging a copy would test
-		# a shape production no longer has. Checked, because a failed stage
-		# leaves the previous mode's config.conf in place and mango would parse
-		# that one again, passing for a file it never read.
-		if ! ln -sfn "$src" "$MHOME/.config/mango/config.conf"; then
-			parse_err+="  $m: could not stage config.conf"$'\n'
-			continue
-		fi
-		err=$(HOME="$MHOME" "$MANGO_BIN" -p 2>&1 >/dev/null)
-		parsed=$((parsed + 1))
-		if [[ -n $err ]]; then
-			# Strip the colour escapes mango emits, so the report is readable.
-			parse_err+="  $m: $(printf '%s' "$err" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"$'\n'
-		fi
-	done
-
-	if [[ $parsed -lt 1 ]]; then
-		bad "no mango config was parsed — the scan is broken, not the repo"
-	elif [[ -n $parse_err ]]; then
-		bad "mango rejected a config it will start on anyway" "$parse_err"
+	err=$(HOME="$MHOME" "$MANGO_BIN" -p 2>&1 >/dev/null)
+	if [[ -n $err ]]; then
+		# Strip the colour escapes mango emits, so the report is readable.
+		bad "mango rejected a config it will start on anyway" \
+			"$(printf '%s' "$err" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
 	else
-		ok "all $parsed mango mode configs parse with no diagnostics"
+		ok "mango/config.conf parses with no diagnostics"
 	fi
 fi
 
@@ -1660,36 +1125,9 @@ palette_pair "waybar" \
 	"$(sed -n 's/^@define-color \([a-z-]*\) .*/\1/p' "$WAYBAR_DIR/colors.css" 2>/dev/null | sort -u)" \
 	"$(grep -ohE '@[a-z-]+' "$SRC"/dotfiles/mango/waybar/style-*.css 2>/dev/null | tr -d '@' | sort -u)"
 
-# rofi, ONCE PER MODE. `colors.rasi` is a runtime symlink since docs/adr/0034
-# and does not exist in the generation at all; what home-manager writes is one
-# `colors-<mode>.rasi` per mode, and each is a separate file that could
-# separately drop a name. `config.rasi` is shared by every menu in every mode
-# (and holds behaviour as well as colour), so the USED side is the same for all.
-rofi_used=$(grep -ohE '@[a-z-]+' "$SRC/dotfiles/rofi/config.rasi" 2>/dev/null | tr -d '@' | sort -u)
-for m in "${MODE_KEYS[@]}"; do
-	palette_pair "rofi ($m)" \
-		"$(sed -n 's/^ *\([a-z-]*\): *#[0-9a-f]*;.*/\1/p' "$GEN_CFG/rofi/colors-$m.rasi" 2>/dev/null | sort -u)" \
-		"$rofi_used"
-done
-
-# wayle, the same pairing in scss. `_colors.scss` is generated from the palette
-# and `index.scss` is hand-written, so both halves fail the way the two above
-# do: sass resolves an undefined `$var` to nothing and the rule renders in the
-# inherited colour. Since docs/adr/0048 four of the five are state colour for
-# the three custom modules, which is the half that would rot unnoticed — a
-# module whose class stops being emitted takes its rule out of use and the bar
-# still renders.
-#
-# The USED side subtracts what `index.scss` defines for itself: `$groups` is a
-# local, not a palette name, and would read as a reference to a colour nobody
-# generated.
-wayle_scss=$SRC/dotfiles/wayle/index.scss
-palette_pair "wayle" \
-	"$(sed -n 's/^[$]\([a-z-]*\):.*/\1/p' "$WAYLE_DIR/styles/_colors.scss" 2>/dev/null | sort -u)" \
-	"$(comm -23 \
-		<(grep -ohE '[$][a-z-]+' "$wayle_scss" 2>/dev/null | tr -d '$' | sort -u) \
-		<(sed -n 's/^[$]\([a-z-]*\):.*/\1/p' "$wayle_scss" 2>/dev/null | sort -u))" \
-	'$'
+palette_pair "rofi" \
+	"$(sed -n 's/^ *\([a-z-]*\): *#[0-9a-f]*;.*/\1/p' "$GEN_CFG/rofi/colors.rasi" 2>/dev/null | sort -u)" \
+	"$(grep -ohE '@[a-z-]+' "$SRC/dotfiles/rofi/config.rasi" 2>/dev/null | tr -d '@' | sort -u)"
 
 # Every file that is supposed to be derived from the palette, and the colour it
 # must contain. A generated file that goes missing or renders empty is this
@@ -1701,12 +1139,8 @@ palette_pair "wayle" \
 # `rgb(215, 153, 33)` to swaync, and a repo-wide grep for the hex found neither.
 # Read the accent from the RESOLVED palette, not from a hex typed here — a
 # check carrying its own copy of the value it is checking passes forever and
-# proves nothing. It used to be read back out of `rofi/colors.rasi`, one of the
-# generated consumers, because that was the only Nix-resolved value available;
-# `$SCHEMES` is now that value at the source, and `colors.rasi` stopped being a
-# generated file when it became a runtime symlink (docs/adr/0034). Nothing is
-# lost by moving up: the scans below are what prove the generation, and they
-# prove it in each consumer's own spelling.
+# proves nothing. `$SCHEMES` is that value at the source; the scans below are
+# what prove the generation, in each consumer's own spelling.
 ACCENT=$(pal .accent)
 
 # Everything else comes from the RESOLVED palette, via `pal` (defined at the top
@@ -1728,9 +1162,13 @@ elif [[ $SCHEME != "$PAL_SCHEME" ]]; then
 else
 	ok "scheme.nix selects '$SCHEME' as the artefact scheme, and themes/$SCHEME.nix exists"
 fi
-# The artefact scheme's muted accent used to be read here too, for ncspot. It
-# is per mode now (docs/adr/0034 phase 3) and resolved per scheme inside the
-# swap loop; a copy here would only be a value nothing reads.
+# ncspot draws its rows in the `muted` set, so its needle is a different colour
+# from the same scheme.
+MUTED_ACCENT=$(pal .muted.accent)
+if [[ ! $MUTED_ACCENT =~ ^[0-9a-f]{6}$ ]]; then
+	bad "could not read the muted accent from the palette" "muted.accent='$MUTED_ACCENT'"
+	MUTED_ACCENT="__unreadable__"
+fi
 if [[ $ACCENT =~ ^[0-9a-f]{6}$ ]]; then
 	ACCENT_RGB="rgb($((16#${ACCENT:0:2})), $((16#${ACCENT:2:2})), $((16#${ACCENT:4:2})))"
 else
@@ -1751,190 +1189,50 @@ while IFS='|' read -r path want label; do
 	fi
 done <<-EOF
 	swaync/style.css|${ACCENT_RGB}|swaync
+	kitty/kitty.conf|#${ACCENT}|kitty
+	foot/foot.ini|${ACCENT}|foot
+	rofi/colors.rasi|#${ACCENT}|rofi
+	ncspot/config.toml|#${MUTED_ACCENT}|ncspot
+	equibop/themes/palette.theme.css|#${ACCENT}|equibop
+	mango/universal/colors.conf|focuscolor=0x${ACCENT}ff|mango
 EOF
-# ncspot and Equibop used to be two more rows here, against the ARTEFACT accent.
-# They are per mode since docs/adr/0034 phase 3 and are checked in the swap loop
-# below instead — a row here would now audit whichever mode `tiling` happens to
-# be, and pass a mode nobody had looked at.
-
-# mango's chrome, per mode, each in the scheme modes.nix gives that mode
-# (docs/adr/0034). Deliberately NOT a row in the table above: the needle differs
-# per file now, and checking all three against the artefact accent would pass a
-# mode whose generated colours had silently stayed on the wrong scheme — which
-# is the whole drift the split exists to make visible.
-#
-# `focuscolor`, not `bordercolor`. The border role differs by mode BY DESIGN
-# (surface in tiling, overlay in noctalia — docs/adr/0022), so it is the
-# one line that proves nothing about which scheme produced the file. The accent
-# is the same role in all three.
-modes_seen=0
-while IFS='|' read -r m mscheme; do
-	[[ -z $m ]] && continue
-	modes_seen=$((modes_seen + 1))
-	macc=$(jq -r ".schemes.\"$mscheme\".accent // empty" "$SCHEMES" 2>/dev/null)
-	mconf="$GEN_CFG/mango/universal/colors-$m.conf"
-	if [[ ! $macc =~ ^[0-9a-f]{6}$ ]]; then
-		bad "mango ($m): modes.nix names '$mscheme', which has no accent in the resolved schemes" \
-			"the scan below would pass on an empty needle"
-	elif [[ ! -s $mconf ]]; then
-		bad "mango ($m): colors-$m.conf is missing or empty" \
-			"mango skips a source= it cannot resolve without a word and keeps its own built-in colours"
-	elif ! grep -qxF "focuscolor=0x${macc}ff" "$mconf"; then
-		bad "mango ($m): colors-$m.conf does not carry the accent of '$mscheme' (0x${macc}ff)" \
-			"generated, but not from the scheme modes.nix gives this mode"
+# ncspot is drawn entirely from `muted`, and the needle above only proves that
+# half was reached. `p.accent` where `m.accent` was meant is the right scheme and
+# the wrong half — so every hex in the file must be a `muted` value.
+nfile="$GEN_CFG/ncspot/config.toml"
+mapfile -t mvals < <(jq -r ".schemes.\"$PAL_SCHEME\".muted | to_entries[] | .value" "$SCHEMES" 2>/dev/null)
+if [[ ${#mvals[@]} -eq 0 ]]; then
+	bad "'$PAL_SCHEME' resolved no muted colours — the ncspot scan would call every hex a stray"
+elif [[ -s $nfile ]]; then
+	stray=""
+	while read -r hex; do
+		[[ -z $hex ]] && continue
+		printf '%s\n' "${mvals[@]}" | grep -qxF "$hex" || stray+=" $hex"
+	done < <(grep -oE '#[0-9a-f]{6}' "$nfile" | tr -d '#' | sort -u)
+	if [[ -z $stray ]]; then
+		ok "ncspot: every colour in its config is from '$PAL_SCHEME''s muted set"
 	else
-		ok "mango ($m): colors-$m.conf is generated from '$mscheme'"
+		bad "ncspot's config carries colours outside '$PAL_SCHEME''s muted set:$stray" \
+			"the right scheme and the wrong half of it — the accent scan above cannot see this"
 	fi
-done < <(jq -r '.modes | to_entries[] | "\(.key)|\(.value)"' "$SCHEMES" 2>/dev/null)
-if [[ $modes_seen -eq 0 ]]; then
-	bad "no modes read from modules/home/modes.nix — the scan is broken, not the repo"
 fi
 
-# The runtime colour swap — docs/adr/0034. Three things have to hold, each
-# silent on its own:
-#
-#   1. the sidecar exists and carries THAT mode's accent in that consumer's own
-#      spelling — copies have hidden in the spelling before;
-#   2. the config that reads it still contains the include;
-#   3. the LINK path is not also an xdg.configFile — two owners for one path is
-#      an activation failure, and `rofi/colors.rasi` was one until adr/0034.
-swap_seen=0
-while IFS='|' read -r m mscheme; do
-	[[ -z $m ]] && continue
-	macc=$(jq -r ".schemes.\"$mscheme\".accent // empty" "$SCHEMES" 2>/dev/null)
-	if [[ ! $macc =~ ^[0-9a-f]{6}$ ]]; then
-		bad "swap ($m): no accent resolved for '$mscheme' — the scans below would pass on an empty needle"
-		continue
-	fi
-	# ncspot draws its rows in the `muted` set, not the canonical ramp, so its
-	# needle is a different colour from the same scheme — the one row here where
-	# the main accent would pass a file generated from the wrong palette half.
-	mmacc=$(jq -r ".schemes.\"$mscheme\".muted.accent // empty" "$SCHEMES" 2>/dev/null)
-	if [[ ! $mmacc =~ ^[0-9a-f]{6}$ ]]; then
-		bad "swap ($m): no muted accent resolved for '$mscheme' — the ncspot scan would pass on an empty needle"
-		continue
-	fi
-	# <path>|<needle>|<label>. The needle differs by consumer on purpose.
-	while IFS='|' read -r path want label; do
-		[[ -z $path ]] && continue
-		swap_seen=$((swap_seen + 1))
-		if [[ ! -s "$GEN_CFG/$path" ]]; then
-			bad "swap ($m): $path is missing or empty" \
-				"apply_theme refuses to link a target it cannot find, so the mode switch would leave the colours where they were and say so"
-		elif ! grep -qF "$want" "$GEN_CFG/$path"; then
-			bad "swap ($m): $path does not carry '$mscheme'\''s accent as $want" \
-				"generated, but not from the scheme modes.nix gives this mode"
-		else
-			ok "swap ($m): $label is generated from '$mscheme'"
-		fi
-	done <<-EOF
-		kitty/colors-$m.conf|#${macc}|kitty
-		foot/colors-$m|${macc}|foot
-		rofi/colors-$m.rasi|#${macc}|rofi
-		ncspot/colors-$m.toml|#${mmacc}|ncspot
-		equibop/themes/$m.theme.css|#${macc}|equibop
-	EOF
-
-	# Equibop displays `@name`, and a name is not a colour — it read `Catppuccin
-	# Mocha` through two scheme changes because every scan here greps for hex.
-	eqfile="$GEN_CFG/equibop/themes/$m.theme.css"
-	if [[ ! -s $eqfile ]]; then
-		: # already reported as missing by the loop above
-	elif grep -qF "@name $m ($mscheme)" "$eqfile"; then
-		ok "swap ($m): equibop announces itself as '$m ($mscheme)'"
-	else
-		bad "swap ($m): equibop's @name is not '$m ($mscheme)'" \
-			"the name Equibop shows has drifted from the mode and scheme that generated the file"
-	fi
-
-	# ncspot is drawn entirely from `muted`, and the needle above only proves
-	# that half was reached. `p.accent` where `m.accent` was meant is the right
-	# scheme and the wrong half — measured, it passed every other check here.
-	# So every hex in the file must be a `muted` value.
-	nfile="$GEN_CFG/ncspot/colors-$m.toml"
-	mapfile -t mvals < <(jq -r ".schemes.\"$mscheme\".muted | to_entries[] | .value" "$SCHEMES" 2>/dev/null)
-	if [[ ${#mvals[@]} -eq 0 ]]; then
-		bad "swap ($m): '$mscheme' resolved no muted colours — the scan below would call every hex a stray"
-	elif [[ ! -s $nfile ]]; then
-		: # already reported as missing by the loop above
-	else
-		stray=""
-		while read -r hex; do
-			[[ -z $hex ]] && continue
-			printf '%s\n' "${mvals[@]}" | grep -qxF "$hex" || stray+=" $hex"
-		done < <(grep -oE '#[0-9a-f]{6}' "$nfile" | tr -d '#' | sort -u)
-		if [[ -z $stray ]]; then
-			ok "swap ($m): every colour in ncspot's config is from '$mscheme''s muted set"
-		else
-			bad "swap ($m): ncspot's config carries colours outside '$mscheme''s muted set:$stray" \
-				"the right scheme and the wrong half of it — the accent scan above cannot see this"
-		fi
-	fi
-done < <(jq -r '.modes | to_entries[] | "\(.key)|\(.value)"' "$SCHEMES" 2>/dev/null)
-if [[ $swap_seen -eq 0 ]]; then
-	bad "no per-mode colour sidecars scanned — the scan is broken, not the repo"
+# Equibop displays `@name`, and a name is not a colour — it read `Catppuccin
+# Mocha` through two scheme changes because every scan here greps for hex.
+if grep -qF "@name $PAL_SCHEME" "$GEN_CFG/equibop/themes/palette.theme.css" 2>/dev/null; then
+	ok "equibop announces its theme as '$PAL_SCHEME'"
 else
-	ok "$swap_seen per-mode colour sidecars scanned"
+	bad "equibop's @name is not '$PAL_SCHEME'" \
+		"the name Equibop shows has drifted from the scheme that generated the file"
 fi
 
-# 2. The include lines. A sidecar nothing reads is the same as no sidecar, and
-# neither kitty nor foot says anything about a colour file it never opened.
-while IFS='|' read -r path want label; do
-	[[ -z $path ]] && continue
-	if [[ ! -s "$GEN_CFG/$path" ]]; then
-		bad "$label: $path is missing — the swap has nothing to reach it through"
-	elif ! grep -qF "$want" "$GEN_CFG/$path"; then
-		bad "$label: $path does not contain '$want'" \
-			"the per-mode colours are generated and then read by nothing; the app keeps its built-in palette"
-	else
-		ok "$label: reads its colours through the runtime link"
-	fi
-done <<-EOF
-	kitty/kitty.conf|include current-theme.conf|kitty
-	foot/foot.ini|include=~/.config/foot/themes/noctalia|foot
-	rofi/config.rasi|@import "colors"|rofi
-EOF
-
-# 3. The runtime link paths must not be in the generation. home-manager would
-# own a path the mode scripts re-point on every switch, which is two owners for
-# one file — and the rebuild after would either fight it or back it up forever.
-#
-# Four are apply_theme's colour links; mango/config.conf is apply_mode's, and
-# joined the family when it stopped being a copy (docs/adr/0040). Same rule,
-# same failure, so one list.
-ownerr=""
-for link in kitty/current-theme.conf foot/themes/noctalia rofi/colors.rasi ncspot/config.toml mango/config.conf; do
-	[[ -e "$GEN_CFG/$link" ]] && ownerr+="  $link"$'\n'
-done
-if [[ -z $ownerr ]]; then
-	ok "the five runtime links are owned by the mode scripts alone, not by home-manager"
+# A colour file nothing reads is the same as none: rofi says nothing about an
+# import it never opened.
+if grep -qF '@import "colors"' "$GEN_CFG/rofi/config.rasi" 2>/dev/null; then
+	ok "rofi: config.rasi imports the generated colors.rasi"
 else
-	bad "a runtime link is also an xdg.configFile — two owners for one path" "$ownerr"
-fi
-
-# And apply_mode must select rather than duplicate. `install`/`cp` here is the
-# thing docs/adr/0040 replaced: it worked, so a revert would look fine and would
-# quietly reintroduce a config.conf that no longer tracks its mode.
-# shellcheck disable=SC2016
-if grep -qE '^\s*ln -sfn "\$MANGO_DIR/\$mode/\$mode\.conf" "\$MANGO_DIR/config\.conf"' "$MANGO/scripts/lib.sh"; then
-	ok "apply_mode selects config.conf with a link, not a copy"
-else
-	bad "apply_mode no longer links config.conf" \
-		"a copy stops tracking its mode the moment the mode conf is rebuilt"
-fi
-
-# And apply_mode has to call it. The rows above prove every file exists; this is
-# the one that proves anything reads them at a mode switch. Same shape as the
-# idle-inhibitor assertion, and for the same reason: a mode switch that quietly
-# skips a step looks exactly like a mode switch.
-# SC2016: `$mode` is the literal text being searched for in lib.sh, not a
-# variable to expand here.
-# shellcheck disable=SC2016
-if grep -qE '^\s*apply_theme "\$mode"' "$MANGO/scripts/lib.sh"; then
-	ok "apply_mode re-points the colour links on every mode switch"
-else
-	bad "apply_mode does not call apply_theme" \
-		"the per-mode colours would be generated and the links would never move"
+	bad "rofi: config.rasi does not @import \"colors\"" \
+		"the generated colours are read by nothing; rofi keeps its built-in palette"
 fi
 
 # nvim is the one consumer whose generated file is conditional. A scheme that
@@ -1990,42 +1288,14 @@ else
 	ok "nvim: '$SCHEME' takes its plugin's own colours, and no palette.lua is generated"
 fi
 
-# The mode configs must actually `source=` the generated file. mango skips an
+# config.conf must actually `source=` the generated file. mango skips an
 # include it cannot resolve without a word, so a renamed file or a dropped line
-# leaves the colours at mango's built-in defaults — which are also dark, also
-# plausible, and nowhere stated to be wrong.
-for mode in "${MODES[@]}"; do
-	if grep -qxF "source=./universal/colors-$mode.conf" "$SRC/dotfiles/mango/$mode/$mode.conf" 2>/dev/null; then
-		ok "mango: $mode.conf sources its generated colours"
-	else
-		bad "mango: $mode/$mode.conf does not source ./universal/colors-$mode.conf" \
-			"the generated palette is built and then never read"
-	fi
-done
-
-# Equibop enables its theme by filename and ignores a name matching no file,
-# without logging. The name apply_theme writes must be one home-manager
-# generates — two languages, two directories, one string. The name is the
-# Mode's since adr/0034, so what must agree is the suffix, for every mode.
-# SC2016: `$mode` is the literal text being searched for in lib.sh, not a
-# variable to expand here.
-# shellcheck disable=SC2016
-eq_suffix=$(sed -n 's/.*--arg t "\$mode\(\.[^"]*\)".*/\1/p' \
-	"$SRC/dotfiles/mango/scripts/lib.sh" 2>/dev/null | head -1)
-if [[ -z $eq_suffix ]]; then
-	bad "could not read the Equibop theme name from lib.sh" \
-		"it is no longer '--arg t \"\$mode<suffix>\"' — the agreement check would pass on an empty needle"
+# leaves the colours at mango's built-in defaults — also dark, also plausible.
+if grep -qxF "source=./universal/colors.conf" "$MANGO/config.conf" 2>/dev/null; then
+	ok "mango: config.conf sources its generated colours"
 else
-	eqmiss=""
-	for m in "${MODES[@]}"; do
-		[[ -s "$GEN_CFG/equibop/themes/$m$eq_suffix" ]] || eqmiss+="  $m$eq_suffix"$'\n'
-	done
-	if [[ -z $eqmiss ]]; then
-		ok "equibop: lib.sh enables <mode>$eq_suffix, and every mode has one generated"
-	else
-		bad "equibop: lib.sh enables '<mode>$eq_suffix', which home-manager does not generate for every mode" \
-			"Equibop ignores a missing theme silently — Discord just stays unstyled:"$'\n'"$eqmiss"
-	fi
+	bad "mango: config.conf does not source ./universal/colors.conf" \
+		"the generated palette is built and then never read"
 fi
 
 # The ceiling. Every palette hex has exactly one home now; a copy reappearing
@@ -2047,12 +1317,8 @@ fi
 # used to be exempt too and is now fetched into the store instead, so it is no
 # longer under dotfiles/ to be scanned.
 #
-# Tracked files only, via is_tracked — mango/config.conf is written at runtime
-# by the mode scripts from the generated file, so it legitimately holds a copy
-# of the colours and is deliberately untracked (docs/adr/0002). Without this
-# filter a working-tree run reports a failure that `nix flake check`, which sees
-# only tracked files, does not — and a check that disagrees with the gate is
-# worse than no check.
+# Tracked files only, via is_tracked: a working-tree run must not report a
+# failure that `nix flake check`, which sees only tracked files, does not.
 PALETTE_HEX=$(
 	sed -n 's/.*= "\([0-9a-f]\{6\}\)";.*/\1/p' "$SRC"/modules/home/themes/*.nix 2>/dev/null |
 		sort -u
@@ -2561,12 +1827,7 @@ contrast() {
 		}'
 }
 
-# Audited for every scheme this machine wears, not only the artefact one.
-# modes.nix can put a second scheme on screen (docs/adr/0034), and a floor that
-# only ever measured scheme.nix's would report a clean bill of health for a mode
-# nobody can read — the check passing by never looking, which is the failure
-# this whole file is built against. `.schemes` holds exactly the in-use set, so
-# a scheme cannot enter service unaudited.
+# Audited for every scheme in `.schemes`, which is the one this machine wears.
 #
 # Each scheme is measured against its own declared floors. There is no global
 # minimum under them: the assertion is "this theme is as legible as it claims",
@@ -2715,414 +1976,6 @@ else
 	fi
 fi
 
-printf '\nGenerated wayle layouts\n'
-
-# 1. config.toml must not be in the generation.
-#
-# scripts/wayle/wayle-restart.sh owns that path as a link, re-pointing it per
-# (layout, position). `services.wayle.settings` holding one value makes the
-# home-manager module claim it, and two owners for one path is an activation
-# failure — the same trap that keeps `programs.ncspot.settings` empty
-# (docs/adr/0034). The failure is loud at switch time and invisible in review,
-# which is why it is asserted rather than commented. docs/adr/0051.
-if [[ -e "$WAYLE_DIR/config.toml" ]]; then
-	bad "home-manager claims wayle/config.toml, which wayle-restart.sh owns as a link" \
-		"set services.wayle.settings back to { } — one value in it claims the path"
-else
-	ok "wayle/config.toml is absent from the generation, so the runtime link has one owner"
-fi
-
-# 2. Every layout, in both positions. Named rather than counted: a count alone
-# passes when one layout vanishes and another is added twice, and the names are
-# what wayle-restart.sh builds its filename from — a missing one falls back to
-# full/top, which notifies but keeps running.
-mapfile -t WLAYOUTS < <(find "$WAYLE_DIR/layouts" -name '*.toml' 2>/dev/null | sort)
-wmiss=""
-for l in full focus minimal; do
-	for pos in top bottom; do
-		[[ -s "$WAYLE_DIR/layouts/$l-$pos.toml" ]] || wmiss+="  $l-$pos.toml"$'\n'
-	done
-done
-if [[ -n $wmiss ]]; then
-	bad "a generated wayle layout is missing" "$wmiss"
-elif [[ ${#WLAYOUTS[@]} -ne 6 ]]; then
-	bad "expected 6 generated wayle layouts (3 layouts x 2 positions), found ${#WLAYOUTS[@]}" \
-		"$(printf '%s ' "${WLAYOUTS[@]##*/}")"
-else
-	ok "6 generated wayle layouts — full, focus and minimal, each top and bottom"
-fi
-
-if [[ ${#WLAYOUTS[@]} -gt 0 ]]; then
-	# 3. Every custom module's `command` names a script that exists and is
-	# Executable. wayle discards a custom module's stderr and renders nothing
-	# when the command fails, so a moved script is an empty widget and no more —
-	# this repo's signature bug, and the same check the waybar configs get.
-	# Nix preserves the mode bit, so a script committed 644 arrives 444 and
-	# fails only at runtime.
-	wrefs=0
-	wmissing=""
-	while read -r ref; do
-		[[ -z $ref ]] && continue
-		wrefs=$((wrefs + 1))
-		[[ -x "$MANGO/scripts/${ref#*scripts/}" ]] || wmissing+="  $ref"$'\n'
-	done < <(
-		# The array, not the directory: every entry under it is a symlink into
-		# the store, and `grep -r` skips symlinks while recursing. The floor
-		# below caught exactly that, which is what it is for.
-		grep -hoE '[~]/\.config/mango/scripts/[^ "'"'"']*' "${WLAYOUTS[@]}" | sort -u
-	)
-	if [[ $wrefs -eq 0 ]]; then
-		bad "no script references read from the wayle layouts — the scan is broken, not the repo"
-	elif [[ -n $wmissing ]]; then
-		bad "a wayle custom module names a missing or non-executable script" "$wmissing"
-	else
-		ok "all $wrefs script references in the wayle layouts resolve and are executable"
-	fi
-
-	# 4. Every module a layout carries has a definition.
-	#
-	# wayle.nix asserts this at eval for its own names, which is the loud half.
-	# This is the other half: a custom module is defined by an `id` and referred
-	# To as `custom-<id>`, so the two spellings can come apart in a way the Nix
-	# assertion cannot see — it compares the list it just built against itself.
-	# wayle renders an unknown module id as nothing at all.
-	undef=""
-	seen_ids=0
-	for cfg in "${WLAYOUTS[@]}"; do
-		mapfile -t ids < <(
-			sed -n '/^\[\[bar.layout\]\]/,/^\[[a-z]/p' "$cfg" |
-				grep -oE '"[a-z0-9-]+"' | tr -d '"' | sort -u
-		)
-		mapfile -t defined < <(
-			grep -oE '^id = "[a-z0-9-]+"' "$cfg" | sed 's/id = "/custom-/;s/"$//' | sort -u
-		)
-		for id in "${ids[@]}"; do
-			case "$id" in
-			top | bottom) continue ;;
-			custom-*)
-				seen_ids=$((seen_ids + 1))
-				printf '%s\n' "${defined[@]}" | grep -qxF "$id" ||
-					undef+="  $(basename "$cfg"): $id has no [[modules.custom]] with that id"$'\n'
-				;;
-			esac
-		done
-	done
-	# The floor. The layout section moved from a flat `left = [...]` to
-	# `[[bar.layout.left]]` group tables when grouping became wayle's own
-	# (docs/adr/0051), and an extraction that stops matching passes by finding
-	# nothing — which is exactly what this check exists to stop.
-	if [[ $seen_ids -eq 0 ]]; then
-		bad "no custom-* ids read from the wayle layouts — the scan is broken, not the repo"
-	elif [[ -n $undef ]]; then
-		bad "a wayle layout carries a custom module id nothing defines" "$undef"
-	else
-		ok "all $seen_ids custom-* ids across the wayle layouts have a [[modules.custom]] definition"
-	fi
-
-	# 5. A custom module with no `icon-name` shows no icon.
-	#
-	# `icon-show` defaults true, so one without an icon still gets the widget and
-	# draws 22px of nothing between its neighbours — the whole of why the bar read
-	# as loose whatever the spacing knobs said. Every script here already puts its
-	# glyph in the text. wayle.nix derives the key from the definition; this is the
-	# floor under that, because an empty slot looks like spacing, not like a bug.
-	slotted=""
-	cblocks=0
-	for cfg in "${WLAYOUTS[@]}"; do
-		while IFS='|' read -r cid hasname hasshow; do
-			cblocks=$((cblocks + 1))
-			[[ $hasname == 1 || $hasshow == 1 ]] ||
-				slotted+="  $(basename "$cfg"): custom-$cid has neither icon-name nor icon-show = false"$'\n'
-		done < <(
-			awk '
-				function flush() { if (inblk) { print id "|" hn "|" hs; inblk = 0 } }
-				/^\[\[modules\.custom\]\]/ { flush(); inblk = 1; id = ""; hn = 0; hs = 0; next }
-				/^\[/ { flush() }
-				inblk && /^id = / { id = $3; gsub(/"/, "", id) }
-				inblk && /^icon-name = / { hn = 1 }
-				inblk && /^icon-show = false/ { hs = 1 }
-				END { flush() }
-			' "$cfg"
-		)
-	done
-	if [[ $cblocks -eq 0 ]]; then
-		bad "no [[modules.custom]] blocks read from the wayle layouts — the scan is broken, not the repo"
-	elif [[ -n $slotted ]]; then
-		bad "a wayle custom module reserves an icon slot it never fills" "$slotted"
-	else
-		ok "all $cblocks wayle custom module definitions either name an icon or hide the slot"
-	fi
-
-	# 5b. The one custom module whose resting state is empty text hides itself —
-	# and BOTH halves are needed, which is the whole reason this is a check.
-	#
-	# `hide-if-empty` tests the command's OUTPUT. `phone-status.sh status`
-	# answers `{"text":"","tooltip":…}` whenever the phone is unreachable, which
-	# is most of the time — a JSON object, and so not empty. The key was set on
-	# its own first and changed nothing: the module kept its button and ~10px of
-	# bar with nothing in it, which read as bluetooth's padding for two rounds of
-	# tuning the wrong key. The `bar` verb exists to make that output actually
-	# empty, and the control centre still calls `status` because it needs
-	# `.class` to tell `offline` from `disconnected`.
-	#
-	# So: the key without the verb is inert, and the verb without the key draws
-	# an empty button. Neither half fails loudly.
-	hidemiss=""
-	phoneblocks=0
-	for cfg in "${WLAYOUTS[@]}"; do
-		while IFS='|' read -r cid hashide hasbar; do
-			[[ $cid == "phone" ]] || continue
-			phoneblocks=$((phoneblocks + 1))
-			[[ $hashide == 1 ]] ||
-				hidemiss+="  $(basename "$cfg"): custom-phone has no hide-if-empty = true"$'\n'
-			[[ $hasbar == 1 ]] ||
-				hidemiss+="  $(basename "$cfg"): custom-phone's command is not phone-status.sh's \`bar\` verb, so hide-if-empty sees a JSON object and never fires"$'\n'
-		done < <(
-			awk '
-				function flush() { if (inblk) { print id "|" hd "|" hb; inblk = 0 } }
-				/^\[\[modules\.custom\]\]/ { flush(); inblk = 1; id = ""; hd = 0; hb = 0; next }
-				/^\[/ { flush() }
-				inblk && /^id = / { id = $3; gsub(/"/, "", id) }
-				inblk && /^hide-if-empty = true/ { hd = 1 }
-				inblk && /^command = .*phone-status\.sh bar"$/ { hb = 1 }
-				END { flush() }
-			' "$cfg"
-		)
-	done
-	if [[ $phoneblocks -eq 0 ]]; then
-		bad "no custom-phone block read from any wayle layout — the scan is broken, or the module left without this check"
-	elif [[ -n $hidemiss ]]; then
-		bad "wayle's custom-phone holds its gap when the phone is away" "$hidemiss"
-	else
-		ok "custom-phone pairs hide-if-empty with the \`bar\` verb in all $phoneblocks layouts that carry it"
-	fi
-
-	# 6. `bar.padding` is zero, so the active workspace tag reaches the bar's
-	# edges. The key is a margin on the section: any value insets every module
-	# from the bar's top and bottom, and the one widget on this bar that draws a
-	# background — the active tag — then stops short at both ends. index.scss
-	# takes the height back as vertical padding on `.mod`, which the workspaces
-	# module opts out of. Nothing about that is visible in a diff of the value.
-	ppad=""
-	for cfg in "${WLAYOUTS[@]}"; do
-		grep -qE '^padding = 0(\.0+)?$' "$cfg" ||
-			ppad+="  $(basename "$cfg"): $(grep -E '^padding = ' "$cfg" || echo 'no padding key')"$'\n'
-	done
-	if [[ -n $ppad ]]; then
-		bad "a wayle layout sets bar.padding, which insets the active workspace tag" "$ppad"
-	else
-		ok "all ${#WLAYOUTS[@]} wayle layouts leave bar.padding at 0, so the active tag is full height"
-	fi
-
-	# 6a. The three surfaces that are NOT the bar are declared.
-	#
-	# wayle is a shell: it draws the bar, eight dropdowns, notification popups
-	# and the OSD. Leave a key out and that surface silently takes wayle's own
-	# default — `styling.rounding` comes up `sm` against a square bar, and with
-	# no `[osd]` block at all the machine's ONLY on-screen display (swayosd went
-	# in docs/adr/0047) is whatever wayle picked. Nothing renders wrong; it
-	# renders like a different machine's shell. docs/adr/0049.
-	surf=""
-	for cfg in "${WLAYOUTS[@]}"; do
-		b=$(basename "$cfg")
-		# WITHIN `[styling]`. A bare grep for the key matches `[bar]`'s own
-		# `rounding`, which is also "none" — so dropping the styling one would
-		# pass on the bar's line. That is the shape of silent pass this file exists to
-		# refuse.
-		awk '/^\[styling\]$/{f=1;next} /^\[/{f=0} f' "$cfg" |
-			grep -qE '^rounding = "none"$' || surf+="  $b: styling.rounding is not \"none\""$'\n'
-		grep -qE '^\[osd\]$' "$cfg" || surf+="  $b: no [osd] block"$'\n'
-		grep -qE '^popup-urgency-bar = "critical"$' "$cfg" ||
-			surf+="  $b: popup-urgency-bar is not \"critical\" — the bar marks every notification"$'\n'
-	done
-	if [[ -n $surf ]]; then
-		bad "a wayle layout leaves a non-bar surface on wayle's defaults" "$surf"
-	else
-		ok "all ${#WLAYOUTS[@]} wayle layouts declare styling.rounding, [osd] and the urgency threshold"
-	fi
-
-	# 6b. Every icon name a layout references resolves THROUGH THE THEME CHAIN.
-	#
-	# A name that does not resolve is not an error anywhere: GTK draws its
-	# missing-image glyph and the module renders, so the bar carries a circle
-	# with a slash where an icon should be.
-	#
-	# THE CHAIN IS THE WHOLE POINT, and the first version of this check did not
-	# have it — it searched every icon tree on the machine, found
-	# `bluetooth-acquiring-symbolic` in Adwaita and passed, while GTK never
-	# looked there. `Papirus-Dark` inherits `breeze-dark,hicolor`; Adwaita is in
-	# neither, and is only present at all because other packages pull it in. A
-	# check that resolves names GTK cannot is worse than no check: it reports a
-	# clean bill on a bar with a missing glyph on it.
-	#
-	# `hicolor` terminates every chain, which is why pkgs/default.nix installs
-	# the `adw-` prefixed set there.
-	#
-	# `find -L`: both trees are symlink farms, and without it Adwaita's
-	# `symbolic/status/` is never entered and every name in it reads as missing.
-	iconnames=$(
-		grep -hoE '"[a-z][a-z0-9_-]*-symbolic"' "${WLAYOUTS[@]}" 2>/dev/null |
-			tr -d '"' | sort -u
-	)
-	icon_count=$(printf '%s\n' "$iconnames" | grep -c .)
-
-	# The theme in service, read off the generation rather than off palette.nix:
-	# this is the name GTK is actually given.
-	icon_theme=$(sed -n 's/^gtk-icon-theme-name=//p' "$GEN_CFG/gtk-3.0/settings.ini" 2>/dev/null)
-
-	# Walk `Inherits=` breadth-first, ending at hicolor.
-	icon_dirs=()
-	if [[ -n $icon_theme ]]; then
-		queue=("$icon_theme" hicolor)
-		seen=""
-		while [[ ${#queue[@]} -gt 0 ]]; do
-			th=${queue[0]}
-			queue=("${queue[@]:1}")
-			[[ $seen == *"|$th|"* ]] && continue
-			seen+="|$th|"
-			for root in "$GEN/home-path/share/icons" "$SYS/sw/share/icons"; do
-				[[ -d "$root/$th" ]] || continue
-				icon_dirs+=("$root/$th")
-				while IFS= read -r parent; do
-					[[ -n $parent ]] && queue+=("$parent")
-				done < <(sed -n 's/^Inherits=//p' "$root/$th/index.theme" 2>/dev/null | tr ',' '\n')
-			done
-		done
-	fi
-
-	if [[ -z $icon_theme ]]; then
-		bad "no gtk-icon-theme-name in the generation — the icon check cannot know what GTK resolves against"
-	elif [[ ${#icon_dirs[@]} -lt 2 ]]; then
-		bad "icon theme '$icon_theme' resolved to ${#icon_dirs[@]} directories — the chain walk is broken, not the config"
-	elif [[ $icon_count -lt 5 ]]; then
-		bad "only $icon_count icon names extracted from the wayle layouts — the scan is broken, not the config"
-	else
-		imissing=()
-		while IFS= read -r n; do
-			[[ -z $n ]] && continue
-			# wayle's own 361 ship inside the package under five prefixes and are
-			# resolved by wayle, not by GTK. `wayle icons list` enumerates them.
-			[[ $n == ld-* || $n == si-* || $n == tb-* || $n == md-* || $n == cm-* ]] && continue
-			find -L "${icon_dirs[@]}" -name "$n.svg" -print -quit 2>/dev/null | grep -q . || imissing+=("$n")
-		done <<<"$iconnames"
-		if [[ ${#imissing[@]} -gt 0 ]]; then
-			bad "wayle icon names GTK cannot resolve through '$icon_theme' and its inherits" "${imissing[*]}"
-		else
-			ok "all $icon_count icon names in the wayle layouts resolve through $icon_theme (${#icon_dirs[@]} themes in the chain)"
-		fi
-	fi
-	# 7. The sheet's `$groups` list is exactly the set of groups the layouts
-	# declare. Every rule in index.scss is built from that one variable — the
-	# within-group gap and the separator both need an ID to out-specify wayle's
-	# own rules, so a group missing from the list keeps wayle's spacing while
-	# every other group loses it. That is invisible: the bar renders, and one
-	# group is merely roomier.
-	#
-	# The same shape as the waybar module/CSS check above, and for the reason
-	# docs/adr/0042 gives.
-	SCSS="$GEN_CFG/wayle/styles/index.scss"
-	if [[ ! -s $SCSS ]]; then
-		bad "wayle/styles/index.scss is missing from the generation" \
-			"the bar falls back to wayle's own spacing, which renders and looks merely loose"
-	else
-		# index.scss carries no descendant `*` selector. GTK4 parents a
-		# menubutton's popover inside the menubutton, so `.mod *` matches every
-		# widget in every dropdown — the calendar, the notification list, the
-		# dashboard — and flattens wayle's own styling of them. The bar looks
-		# exactly as intended while everything it opens looks broken, which is
-		# why this is a check and not a comment. `> *` is fine: a popover is a
-		# child of the module, so a direct-child selector stops one short of it.
-		# `+` and `~` are sibling combinators and equally safe — a module's
-		# sibling is another module, never something inside one.
-		#
-		# It lives here, after `$SCSS` is assigned and checked. Its first cut
-		# sat above that line and grepped an empty path — passing by finding
-		# nothing, over a mutation that added `.mod *` deliberately.
-		mapfile -t STARS < <(
-			sed 's|//.*||' "$SCSS" | grep -nE '(^|[^>+~[:space:]])[[:space:]]+[*]|^[*]' || true
-		)
-		if [[ ${#STARS[@]} -gt 0 ]]; then
-			bad "index.scss uses a descendant \`*\`, which reaches inside every dropdown" \
-				"$(printf '  %s\n' "${STARS[@]}")"
-		else
-			ok "index.scss uses no descendant \`*\`, so no rule here reaches into a dropdown"
-		fi
-
-		# Every rule here that touches a `.bar-button-*` node carries an id.
-		#
-		# wayle styles those nodes itself, at (0,2,2) for `.bar-button-label`
-		# and (0,3,1) for `.bar-button-content`. A selector built from our own
-		# classes tops out at (0,2,1) and loses — and a rule that loses is a
-		# rule that renders, so the bar looks deliberate and one value is
-		# wayle's. `.mod-clock .bar-button-label { font-size }` sat here inert
-		# from the day it was written; the clock wore the bar default and
-		# nothing said so. An id beats anything wayle can write.
-		mapfile -t WEAKBTN < <(
-			sed 's|//.*||' "$SCSS" |
-				grep -nE '\.bar-button-[a-z]+' |
-				grep -v '#' || true
-		)
-		if [[ ${#WEAKBTN[@]} -gt 0 ]]; then
-			bad "index.scss styles a .bar-button-* node without an id, so wayle's own rule wins and this one is inert" \
-				"$(printf '  %s\n' "${WEAKBTN[@]}")"
-		else
-			ok "every index.scss rule touching a .bar-button-* node carries an id, so it out-specifies wayle's own"
-		fi
-
-		# The declaration wraps across lines and is joined with `+`, so this
-		# reads the whole statement rather than one line of it.
-		mapfile -t SCSS_IDS < <(
-			sed -n '/^[$]groups:/,/;[[:space:]]*$/p' "$SCSS" |
-				grep -oE '#[a-z][a-z0-9-]*' | tr -d '#' | sort -u
-		)
-		mapfile -t GROUP_IDS < <(
-			# `(^|[^-])name`: a module's `icon-name = "ld-power-symbolic"` also
-			# ends in `name = "…"` and was read as a group nobody had styled.
-			# The `^` alternative is load-bearing — the group names sit at the
-			# Start of a line, so requiring a preceding character matched the
-			# icon names and nothing else.
-			grep -hoE '(^|[^-])name = "[a-z][a-z0-9-]*"' "${WLAYOUTS[@]}" |
-				sed 's/.*name = "//;s/"//' | sort -u
-		)
-		if [[ ${#SCSS_IDS[@]} -eq 0 || ${#GROUP_IDS[@]} -eq 0 ]]; then
-			bad "no group ids read from index.scss or the layouts — the scan is broken, not the repo"
-		else
-			gmiss=""
-			for g in "${GROUP_IDS[@]}"; do
-				printf '%s\n' "${SCSS_IDS[@]}" | grep -qxF "$g" ||
-					gmiss+="  layout group '$g' is missing from index.scss's \$groups"$'\n'
-			done
-			for c in "${SCSS_IDS[@]}"; do
-				printf '%s\n' "${GROUP_IDS[@]}" | grep -qxF "$c" ||
-					gmiss+="  index.scss's \$groups names '#$c', which no layout groups"$'\n'
-			done
-			if [[ -n $gmiss ]]; then
-				bad "wayle group/stylesheet mismatch" "$gmiss"
-			else
-				ok "all ${#GROUP_IDS[@]} wayle layout groups are named in index.scss's \$groups, and no others are"
-			fi
-		fi
-	fi
-
-	# 8. The palette reaches them. A wayle layout with no [styling.palette] wears
-	# wayle's own default colours, which is a complete, plausible theme and not
-	# this machine's — the drifted-palette failure docs/adr/0028 gets a check for
-	# rather than a convention. Checked against the artefact scheme's own bg.
-	wbg=$(pal '.bg0')
-	pmiss=""
-	for cfg in "${WLAYOUTS[@]}"; do
-		grep -qF "bg = \"#$wbg\"" "$cfg" || pmiss+="  $(basename "$cfg")"$'\n'
-	done
-	if [[ -z $wbg ]]; then
-		bad "no bg0 read from the scheme — the scan is broken, not the repo"
-	elif [[ -n $pmiss ]]; then
-		bad "a wayle layout does not carry this scheme's background (#$wbg)" \
-			"it would wear wayle's own palette, which looks deliberate:"$'\n'"$pmiss"
-	else
-		ok "all ${#WLAYOUTS[@]} wayle layouts carry the '$PAL_SCHEME' background #$wbg"
-	fi
-fi
-
 printf '\nGenerated waybar configs\n'
 
 # Every layout, in both positions. Named rather than counted: a count alone
@@ -3257,8 +2110,7 @@ else
 	# A module that declares `signal = N` and has nothing sending RTMIN+N updates
 	# only on its poll interval. The key or click changes the state immediately and
 	# the bar shows the old value for up to 30 s, which reads as the binding not
-	# working. Four modules were in that state: the pushes were removed when waybar
-	# was retired for wayle, and docs/adr/0051 restored waybar without them.
+	# working. Four modules were in that state after docs/adr/0051.
 	#
 	# `^[^#]*` so the comment explaining a removed push does not count as one.
 	# docs/adr/0056.
@@ -3836,13 +2688,11 @@ else
 		facebad+="  dotfiles/rofi/config.rasi is not Hack"$'\n'
 	grep -qE 'font-family: "Hack Nerd Font", monospace;' "$SRC/modules/home/programs.nix" ||
 		facebad+="  wlogout in modules/home/programs.nix is not Hack"$'\n'
-	grep -qE 'font-sans = "Symbols Nerd Font Mono, 3270 Nerd Font";' "$SRC/modules/home/wayle.nix" ||
-		facebad+="  modules/home/wayle.nix does not mirror the bar's stack"$'\n'
 	if [[ -n $facebad ]]; then
 		bad "a surface is on the wrong face" \
 			"3270 is the bar's, Hack is body text; an undeclared family is a silent fallback:"$'\n'"$facebad"
 	else
-		ok "3270 for the bar and wayle, Hack for the menus and wlogout"
+		ok "3270 for the bar, Hack for the menus and wlogout"
 	fi
 fi
 
@@ -3935,23 +2785,8 @@ else
 	bad "waybar's battery states have drifted from upower" "$drifted"
 fi
 
-# Night light is killed from outside this repo: noctalia runs `pkill -x wlsunset`
-# in `Component.onCompleted`, unconditionally, on every start. systemd counts a
-# Sigterm as a clean exit, so `Restart=on-failure` did not bring it back and one
-# entry into noctalia mode ended night light for the session, silently.
-# docs/gotchas.md → night light.
-NIGHT_UNIT="$GEN/home-files/.config/systemd/user/wlsunset.service"
-if [[ ! -f $NIGHT_UNIT ]]; then
-	bad "no generated wlsunset.service — the scan is broken" "$NIGHT_UNIT"
-elif ! grep -qx 'Restart=always' "$NIGHT_UNIT"; then
-	bad "wlsunset is not Restart=always — an outside SIGTERM ends night light for the session" \
-		"$(grep -m1 '^Restart=' "$NIGHT_UNIT" || echo 'no Restart= at all')"
-else
-	ok "wlsunset restarts even when something else SIGTERMs it"
-fi
-
 # `mmsg watch` is a long-lived stream, and the script running it is killed from
-# outside — `pkill waybar` on every mode switch and every waybar-reload. The
+# outside — `pkill waybar` on every reload and layout switch. The
 # watcher does not go with it: four orphans were alive at once on 2026-08-16, up
 # to fourteen hours old, each holding an IPC socket to a compositor nothing was
 # reading from. A trap that reaps this script's own children is the fix, and its
@@ -4058,20 +2893,6 @@ else
 	ok "wlinhibit.service exists and starts only on request"
 fi
 
-# ...and apply_mode hands it over on the way into noctalia, which holds its own
-# inhibitor over quickshell with no getter to read it back. Dropping this line
-# is invisible: both inhibitors are real, so the machine still stays awake — it
-# is the other shell's indicator that starts lying. docs/adr/0031.
-LIBSH="$MANGO/scripts/lib.sh"
-if ! grep -q 'idle-inhibit\.sh' "$LIBSH"; then
-	bad "apply_mode does not hand the idle inhibitor over — entering noctalia would leave wlinhibit holding behind its indicator" \
-		"$LIBSH"
-elif ! grep -q 'idle-inhibit\.sh" off' "$LIBSH"; then
-	bad "lib.sh names idle-inhibit.sh but never stops it — the handover tests a state it does not act on" "$LIBSH"
-else
-	ok "apply_mode releases the inhibitor entering noctalia"
-fi
-
 printf '\nFonts\n'
 
 # A font family that resolves to nothing renders as a silent fallback: bold text
@@ -4112,16 +2933,9 @@ else
 			# window full of boxes rather than a slightly different typeface.
 			sed -nE 's/^[[:space:]]*font:[[:space:]]*"(.*) [0-9]+"[[:space:]]*;.*/\1/p' \
 				"$SRC/dotfiles/rofi/config.rasi" 2>/dev/null
-			# wayle: `font-sans`/`font-mono` under [general], one per layout.
-			# It falls back to its own default without a word, so a name this
-			# machine lacks looks merely unstyled — `Inter` was written here and
-			# is not installed. docs/adr/0051.
-			sed -nE 's/^font-(sans|mono) = "(.*)"$/\2/p' \
-				"$WAYLE_DIR"/layouts/*.toml 2>/dev/null
 		)
-		# A config may name a stack — wayle's `font-sans` is
-		# "Symbols Nerd Font Mono, 3270 Nerd Font", the same two-family fallback
-		# style-solid.css uses, because 3270's advance is too narrow for the
+		# A config may name a stack — style-solid.css's is "Symbols Nerd Font
+		# Mono, 3270 Nerd Font", because 3270's advance is too narrow for the
 		# glyphs it patches in. Split it, or the whole stack is looked up as one
 		# family name and reported missing.
 		wanted=$(printf '%s\n' "$wanted" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -4158,7 +2972,7 @@ else
 			if [[ ${#missing[@]} -gt 0 ]]; then
 				bad "font names that resolve to nothing (silent fallback)" "${missing[*]}"
 			else
-				ok "all $want_count font names referenced by kitty, foot, rofi and wayle resolve"
+				ok "all $want_count font names referenced by kitty, foot, rofi and waybar resolve"
 			fi
 		fi
 	fi

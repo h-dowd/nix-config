@@ -15,21 +15,8 @@ let
   link = path: config.lib.file.mkOutOfStoreSymlink "${dots}/dotfiles/${path}";
 
   p = import ./palette.nix;
-
-  # The colour-only half, per desktop mode (docs/adr/0034). `p` above is the
-  # ARTEFACT scheme and remains the default for everything that is not per-mode;
-  # this resolves a second palette for the two things that are.
-  #
-  # `import ./themes/${...}.nix` rather than a lookup into an attrset of every
-  # theme: an unknown name has to be a file-not-found at eval, and only the
-  # schemes actually named get evaluated.
-  modes = import ./modes.nix;
-  modePalette = mode: import ./themes/${modes.${mode}}.nix;
-
-  # The name noctalia resolves its palette by, for the mode it runs in. One
-  # binding, because it is the file NAME, the directory name and the value of
-  # `predefinedScheme`, and those three have to be the same word.
-  noctaliaScheme = (modePalette "noctalia").apps.noctalia;
+  # The scheme's NAME, for the provenance lines of generated files.
+  scheme = import ./scheme.nix;
 
   # Bare "rrggbb" → { r; g; b; } as integers. swaync wants decimal channels,
   # which is the spelling that let a copy of the palette hide: grepping this
@@ -71,42 +58,19 @@ let
       "  --${name}-5: color-mix(in srgb, #${c} 76%, black);"
     ];
 
-  # The colours mango takes, per mode. Emitted as files the mode configs
-  # `source=`, which is mango's own include directive (see the source= block at
-  # the top of any mode config) — so the hand-written configs keep the layout
-  # and rules and hold no hex at all.
-  #
-  # `borderRole` differs by mode deliberately: noctalia mode draws its own
-  # heavier chrome and takes `overlay`, tiling takes `surface`
-  # (docs/adr/0022). Everything below the border is identical in SHAPE across
-  # modes and comes from universal/settings.conf, which is why that is the file
-  # that drifted.
-  #
-  # The SCHEME differs by mode too, from ./modes.nix (docs/adr/0034) — so the
-  # role is named rather than passed as a value: `surface` has to be resolved
-  # against the palette this mode wears, not against the artefact one.
-  #
-  # The header names that scheme. A generated file whose provenance is a
-  # sentence rather than a name is the one that gets edited by hand.
-  modeColors =
-    mode: borderRole:
-    let
-      q = modePalette mode;
-    in
-    ''
-      # GENERATED from modules/home/themes/${modes.${mode}}.nix, selected for the
-      # '${mode}' mode by modules/home/modes.nix — edit those, then rebuild.
-      # `source=`d by the mode config. Reloading mango alone re-reads the LAST
-      # rebuild's copy, which looks exactly like the change having had no effect.
-      bordercolor=${mangoColor q.${borderRole}}
-      focuscolor=${mangoColor q.accent}
-      rootcolor=${mangoColor q.base}
-      maximizescreencolor=${mangoColor q.okColor}
-      urgentcolor=${mangoColor q.errColor}
-      scratchpadcolor=${mangoColor q.brMagenta}
-      globalcolor=${mangoColor q.brMagenta}
-      overlaycolor=${mangoColor q.brCyan}
-    '';
+  # The colours mango takes, as a file config.conf `source=`s, so the
+  # hand-written configs keep the layout and rules and hold no hex at all.
+  mangoColors = ''
+    # GENERATED from modules/home/palette.nix — edit that, then rebuild.
+    bordercolor=${mangoColor p.surface}
+    focuscolor=${mangoColor p.accent}
+    rootcolor=${mangoColor p.base}
+    maximizescreencolor=${mangoColor p.okColor}
+    urgentcolor=${mangoColor p.errColor}
+    scratchpadcolor=${mangoColor p.brMagenta}
+    globalcolor=${mangoColor p.brMagenta}
+    overlaycolor=${mangoColor p.brCyan}
+  '';
 
   # nvim is linked as ONE directory symlink, so unlike mango there is no way to
   # drop a generated file inside it — home-manager would be claiming a path that
@@ -179,26 +143,18 @@ let
     }
   '';
 
-  # Equibop's theme, per desktop mode (docs/adr/0034). Here rather than in
-  # ./mode-theme.nix because Equibop needs no symlink — it enables a theme by
-  # FILENAME from its own settings.json, which apply_theme() rewrites — and
-  # because `channels` and `scale` above have other callers in this file.
-  #
-  # Named for the MODE, never the scheme: a filename is a name, not a colour,
-  # and this one was already stale once as `gruvbox.theme.css`.
+  # Equibop's theme. It enables a theme by FILENAME from its own settings.json,
+  # which home.activation.equibopTheme below writes.
   equibopTheme =
-    mode: q:
+    q:
     # The metadata block, PREPENDED. `@name` is what Equibop shows in its theme
-    # list, so with one file per mode a single hardcoded name would make the
-    # three indistinguishable there — and it had already gone stale as
-    # `Catppuccin Mocha` across two scheme changes, a name being the one thing a
-    # search for hex never finds. A comment may precede the fragment's `@import`
-    # because CSS only requires `@import` to precede RULES.
+    # list. A comment may precede the fragment's `@import` because CSS only
+    # requires `@import` to precede RULES.
     ''
       /**
-       * @name ${mode} (${modes.${mode}})
-       * @description Generated for the '${mode}' desktop mode from
-       *   modules/home/themes/${modes.${mode}}.nix, using the midnight framework.
+       * @name ${scheme}
+       * @description Generated from modules/home/themes/${scheme}.nix, using the
+       *   midnight framework.
        * @author henry
        * @version 3.0
        */
@@ -207,8 +163,7 @@ let
     + builtins.readFile ../../dotfiles/equibop/theme-body.css
     + ''
       /* ---------------------------------------------------------------
-         GENERATED from modules/home/themes/${modes.${mode}}.nix, for the
-         '${mode}' desktop mode (modules/home/modes.nix) — edit those, then
+         GENERATED from modules/home/themes/${scheme}.nix — edit that, then
          rebuild. The rules above are hand-written and live in
          dotfiles/equibop/theme-body.css.
          --------------------------------------------------------------- */
@@ -307,8 +262,8 @@ in
 {
   xdg.configFile = {
     # --- Desktop environment ------------------------------------------------
-    # `recursive` so config.conf can be a link the mode scripts re-point, and so
-    # the twelve generated files below can sit inside the hand-written tree.
+    # `recursive` so the generated files below can sit inside the hand-written
+    # tree.
     # Converting an already-linked directory this way destroys the checkout —
     # see unlinkStaleConfigDirs below and docs/adr/0002.
     "mango" = {
@@ -319,12 +274,7 @@ in
     # The colours, generated. These paths do not exist under dotfiles/mango, so
     # they are new siblings inside the recursive tree rather than a second owner
     # for a linked path — the same arrangement waybar/colors.css already uses.
-    #
-    # One file per mode, each in the scheme ./modes.nix gives that mode. This is
-    # the first consumer to differ by mode rather than only by border role;
-    # everything else on this machine still wears ./scheme.nix. docs/adr/0034.
-    "mango/universal/colors-tiling.conf".text = modeColors "tiling" "surface";
-    "mango/universal/colors-noctalia.conf".text = modeColors "noctalia" "overlay";
+    "mango/universal/colors.conf".text = mangoColors;
 
     # Where the machine is, for scripts/system/weather.sh alone. Typed floats
     # from `local.location` (./options.nix), so a transposed sign is an eval
@@ -362,160 +312,6 @@ in
       cursor_size=${toString config.home.pointerCursor.size}
     '';
 
-    # noctalia's pinned settings — merged over its own settings.json by
-    # `scripts/modes/noctalia.sh` on every entry into that mode.
-    #
-    # GENERATED, and it is here rather than under dotfiles/mango/noctalia/
-    # because of ONE key: `predefinedScheme`. noctalia owns roughly half the
-    # screen in its mode and resolves its palette from that name internally, so
-    # a scheme change that misses it leaves the machine half this palette and
-    # half noctalia purple — which looks like a theme, not a fault. The rest of
-    # the file is settings rather than colours and moved with it, because the
-    # alternative is two owners for one path.
-    # noctalia's own scheme file for whatever the noctalia MODE wears, written
-    # from that theme rather than fetched. docs/adr/0041.
-    #
-    # `ColorSchemeService.qml` scans this directory with `find -L … -mindepth 2
-    # -name '*.json'`, so a managed FILE at `<Name>/<Name>.json` is found and
-    # the parent stays writable for noctalia's own downloader — two owners for
-    # one directory is the activation failure docs/adr/0002 records.
-    #
-    # Written for EVERY mode scheme, not only the ones noctalia lacks: a file
-    # here shadows nothing (the package's own Assets are searched first for a
-    # name that exists there), and generating only the missing ones would make
-    # the set depend on which version of noctalia is pinned.
-    #
-    # `light` is the dark scheme repeated. `settings-pinned.json` pins
-    # `darkMode = true`, so only `dark` is ever read; emitting the key keeps the
-    # file the shape noctalia's own schemes are, and flipping darkMode gets a
-    # dark scheme rather than a missing one.
-    "noctalia/colorschemes/${noctaliaScheme}/${noctaliaScheme}.json".text =
-      let
-        q = modePalette "noctalia";
-        variant = {
-          mPrimary = "#${q.accent}";
-          mOnPrimary = "#${q.fg1}";
-          mSecondary = "#${q.blue}";
-          mOnSecondary = "#${q.bg0}";
-          mTertiary = "#${q.magenta}";
-          mOnTertiary = "#${q.bg0}";
-          mError = "#${q.errColor}";
-          mOnError = "#${q.fg1}";
-          mSurface = "#${q.bg0}";
-          mOnSurface = "#${q.fg1}";
-          mSurfaceVariant = "#${q.bg1}";
-          mOnSurfaceVariant = "#${q.comment}";
-          mOutline = "#${q.fg4}";
-          mShadow = "#${q.mantle}";
-          mHover = "#${q.bg2}";
-          mOnHover = "#${q.fg1}";
-          terminal = {
-            normal = {
-              black = "#${q.black}";
-              red = "#${q.red}";
-              green = "#${q.green}";
-              yellow = "#${q.yellow}";
-              blue = "#${q.blue}";
-              magenta = "#${q.magenta}";
-              cyan = "#${q.cyan}";
-              white = "#${q.white}";
-            };
-            bright = {
-              black = "#${q.brBlack}";
-              red = "#${q.brRed}";
-              green = "#${q.brGreen}";
-              yellow = "#${q.brYellow}";
-              blue = "#${q.brBlue}";
-              magenta = "#${q.brMagenta}";
-              cyan = "#${q.brCyan}";
-              white = "#${q.brWhite}";
-            };
-            foreground = "#${q.fg1}";
-            background = "#${q.bg0}";
-            selectionFg = "#${q.fg1}";
-            selectionBg = "#${q.selBg}";
-            cursorText = "#${q.bg0}";
-            cursor = "#${q.fg0}";
-          };
-        };
-      in
-      builtins.toJSON {
-        dark = variant;
-        light = variant;
-      };
-
-    "mango/noctalia/settings-pinned.json".text = builtins.toJSON {
-      # ON, reversing docs/adr/0020's "wallpaper off (awww owns it)". awww no
-      # longer owns it across the machine: wayle drives it in tiling and
-      # noctalia drives it here, because each mode's shell already has a
-      # wallpaper manager and the shared script had to be stopped for one of
-      # them anyway. docs/adr/0045.
-      wallpaper.enabled = true;
-      nightLight.enabled = false;
-      idle.enabled = false;
-      general.lockOnSuspend = false;
-      colorSchemes = {
-        syncGsettings = false;
-        useWallpaperColors = false;
-        # From ./modes.nix, not ./scheme.nix. noctalia runs in exactly one
-        # mode, so it needs no runtime swap — but it must agree with the mango
-        # chrome drawn around it, which colors-noctalia.conf now takes from the
-        # same place. A shell in one scheme inside borders in another is the one
-        # result worse than either scheme on its own, and it looks deliberate.
-        predefinedScheme = noctaliaScheme;
-        darkMode = true;
-      };
-      # Off permanently, not pending — docs/adr/0036. Every template either
-      # writes a path apply_theme owns or a file nothing here reads, and the
-      # gtk/mango/yazi hooks replace a store symlink with a local copy without
-      # erroring. checks/static.sh asserts both of these values.
-      templates = {
-        enableUserTheming = false;
-        activeTemplates = [ ];
-      };
-      plugins.autoUpdate = false;
-      appLauncher.enableClipboardHistory = true;
-      # `keybind` is a STRING in noctalia's schema, not a number — it is the key
-      # the session menu listens for, and a JSON integer here is silently ignored.
-      sessionMenu.powerOptions = [
-        {
-          action = "lock";
-          enabled = true;
-          keybind = "1";
-        }
-        {
-          action = "suspend";
-          enabled = true;
-          keybind = "2";
-        }
-        {
-          action = "hibernate";
-          enabled = true;
-          keybind = "3";
-        }
-        {
-          action = "reboot";
-          enabled = true;
-          keybind = "4";
-        }
-        {
-          action = "logout";
-          enabled = false;
-          keybind = "5";
-        }
-        {
-          action = "shutdown";
-          enabled = true;
-          keybind = "6";
-        }
-        {
-          action = "rebootToUefi";
-          enabled = true;
-          keybind = "7";
-        }
-      ];
-    };
-
     # --- Editors ------------------------------------------------------------
     # lazy-lock.json lives in stdpath("state"). Not the bare directory: the
     # generated palette is merged in first, see nvimConfig above.
@@ -547,9 +343,7 @@ in
     # launcher drew Adwaita art beside Papirus everywhere else and resolved 90
     # of 97 desktop entries instead of 96. Measured 2026-08-29.
     #
-    # Scheme-level rather than per mode: the icon set is an artefact and follows
-    # scheme.nix, not modes.nix (docs/adr/0034). That is why this is its own
-    # file and not a line in the per-mode colors.rasi. docs/adr/0060
+    # docs/adr/0060
     "rofi/icons.rasi".text = ''
       /* GENERATED from modules/home/dotfiles.nix. */
       configuration {
@@ -557,15 +351,22 @@ in
       }
     '';
 
-    # `rofi/colors.rasi` IS NOT DECLARED HERE ANY MORE, and that is the point.
-    # It was generated from the palette until 2026-08-19; it is now a RUNTIME
-    # SYMLINK that apply_theme re-points at `rofi/colors-<mode>.rasi`, so the
-    # menus follow the desktop mode (docs/adr/0034). Declaring it again would be
-    # two owners for one path, which is an activation failure rather than a
-    # merge. The per-mode files it points at are in modules/home/mode-theme.nix.
+    # Imported by config.rasi as `@import "colors"`. Names match
+    # waybar/colors.css, so bar and menus share one vocabulary.
+    "rofi/colors.rasi".text = ''
+      /* GENERATED from modules/home/themes/${scheme}.nix — edit that, then rebuild. */
+      * {
+          base:    #${p.base};
+          overlay: #${p.overlay};
+          text:    #${p.text};
+          subtext: #${p.subtext};
+          accent:  #${p.accent};
+          urgent:  #${p.errColor};
+      }
+    '';
 
     # Not `services.swaync` — autostart.conf owns the lifecycle so a restyle
-    # applies on mode switch. docs/adr/0005.
+    # applies on reload. docs/adr/0005.
     #
     # ONE generated file, not a hand-written `:root` plus an `@import` of a
     # generated palette the way waybar and rofi are split. swaync's CSS engine
@@ -639,16 +440,11 @@ in
     # corectrl writes its config from the GUI, which is the point of it.
     "corectrl".source = link "corectrl";
   }
-  # Equibop (Discord), one theme file per desktop mode. `mapAttrs'` over `modes`
-  # rather than three literal entries like mango's above: those differ by an
-  # argument each (the border role), these differ only by mode, so a mode added
-  # to modes.nix should get its theme with nothing to remember.
-  // lib.mapAttrs' (
-    mode: _:
-    lib.nameValuePair "equibop/themes/${mode}.theme.css" {
-      text = equibopTheme mode (modePalette mode);
-    }
-  ) modes
+  # Equibop (Discord). A fixed filename, so a scheme switch cannot strand the
+  # name settings.json holds.
+  // {
+    "equibop/themes/palette.theme.css".text = equibopTheme p;
+  }
   # The Kvantum theme itself, from the store — but only when the scheme HAS one.
   # All four shipped schemes do; a scheme that instead names a Kvantum built-in
   # (`KvArcDark` and friends, which the style plugin already ships) has nothing
@@ -691,17 +487,39 @@ in
       '') topLevel
     );
 
-  # THE BOOTSTRAP, mirroring seedModeTheme in ./mode-theme.nix. `apply_mode`
-  # re-points config.conf on a mode switch, so a fresh machine has none until
-  # the first switch. mango then falls back to /etc/mango/config.conf, which
-  # does not exist on NixOS, and starts with no keybinds. `[ -e ]` follows
-  # symlinks, so a dangling link is repaired too. Seeded to `tiling`,
-  # hard-coded, matching current_mode()'s fallback; reading current-mode here
-  # would add a fourth reader of that state. docs/adr/0040.
-  home.activation.seedModeConfig = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
-    [ -e "$HOME/.config/mango/config.conf" ] \
-      || run ln -sfn "$HOME/.config/mango/tiling/tiling.conf" "$HOME/.config/mango/config.conf"
-  '';
+  # Paths the retired mode switch kept as runtime symlinks, now owned here or
+  # gone. A symlink out of the store is in the way of checkLinkTargets, so it is
+  # removed first. docs/adr/0061.
+  home.activation.unlinkModeLinks = lib.hm.dag.entryBefore [ "checkLinkTargets" ] (
+    lib.concatMapStrings
+      (f: ''
+        l="${config.xdg.configHome}/${f}"
+        if [ -L "$l" ] && [[ $(readlink "$l") != /nix/store/* ]]; then
+          run rm $VERBOSE_ARG "$l"
+        fi
+      '')
+      [
+        "mango/config.conf"
+        "kitty/current-theme.conf"
+        "foot/themes/noctalia"
+        "rofi/colors.rasi"
+        "ncspot/config.toml"
+        "wayle/config.toml"
+      ]
+  );
+
+  # Equibop enables a theme by filename from its own settings.json, which it
+  # rewrites, so the name is written here rather than declared. No file until
+  # it has been launched once.
+  home.activation.equibopTheme =
+    let
+      apply = pkgs.writeShellScript "equibop-theme" ''
+        eq="${config.xdg.configHome}/equibop/settings/settings.json"
+        [ -f "$eq" ] || exit 0
+        ${pkgs.jq}/bin/jq '.enabledThemes = ["palette.theme.css"]' "$eq" > "$eq.tmp" && mv "$eq.tmp" "$eq"
+      '';
+    in
+    lib.hm.dag.entryAfter [ "linkGeneration" ] "run ${apply}\n";
 
   # Top-level dirs GTK file managers omit from the ~ view (Ctrl+H to show).
   home.file.".hidden".text = ''

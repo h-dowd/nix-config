@@ -29,8 +29,7 @@ trap cleanup EXIT
 trap 'exit 0' PIPE HUP INT TERM
 
 # `class` is what CSS collapses on. An empty text still draws `.module`'s
-# padding, which is 10px of dead bar in the resting state — the same 10px that
-# was reported as bluetooth's padding on the wayle bar (docs/gotchas.md).
+# padding, which is 10px of dead bar in the resting state.
 emit() {
 	local out
 	out=$(jq -c '

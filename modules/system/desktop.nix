@@ -82,17 +82,8 @@ in
     # Bar / notifications / OSD / lock
     waybar
     swaynotificationcenter
-    # Both the bar and the notification daemon in `noctalia` desktop mode
-    # (docs/adr/0020). The unit in modules/home/default.nix runs it by store
-    # path; this entry is for the `noctalia-shell ipc call …` the binds use.
-    # `noctalia-shell` (4.x, quickshell) not `noctalia` (5.x beta, which clones
-    # plugin repos over git at runtime).
-    noctalia-shell
-    # THE OSD IN TILING MODE. Removed on 2026-08-26 because wayle and noctalia
-    # each drew their own caps-lock overlay and this made a second one
-    # (docs/adr/0047); back the same day because waybar has no OSD at all, so
-    # without it the volume, brightness and lock keys have no feedback
-    # whatever. docs/adr/0051.
+    # THE OSD. waybar has none, so without it the volume, brightness and lock
+    # keys have no feedback whatever.
     #
     # Its udev rule did NOT come back with it and does not need to: the
     # backlight grant is brightnessctl's own now, a superset of what

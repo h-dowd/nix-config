@@ -76,5 +76,5 @@ esac
 
 # custom/power-profile declares `signal = 11` and polls every 30 s. `|| true`
 # keeps this off the script's exit status: the switch landed and was verified two
-# lines above, and in noctalia mode the pkill matches nothing. docs/adr/0056.
+# lines above, and with no bar running the pkill matches nothing. docs/adr/0056.
 pkill -RTMIN+11 waybar 2>/dev/null || true

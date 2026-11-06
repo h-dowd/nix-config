@@ -1,8 +1,9 @@
 # 0047 — A retired daemon is a call that exits 0
 
-**Status:** Accepted (2026-08-26).
+**Status:** Accepted (2026-08-26). wayle is removed outright by
+[0061](0061-one-desktop-noctalia-and-wayle-removed.md); the finding stands.
 
-Follows [0045](0045-each-mode-owns-its-wallpaper.md), which retired waybar and
+Follows 0045, which retired waybar and
 swaync from tiling mode. It moved the bar; it did not move the callers.
 
 ## Context
@@ -30,7 +31,7 @@ shapes, none of which announces itself:
   outlived them. Nothing has read those files since. `swayosd-server` drew a
   caps-lock overlay on top of the one wayle draws in tiling and the one noctalia
   draws in noctalia; nothing here has ever called `swayosd-client`.
-  [0020](0020-noctalia-is-a-desktop-mode.md) accepted that overlap when it
+  0020 accepted that overlap when it
   happened in one mode and swayosd was the only OSD in the other. Both halves of
   that trade are gone.
 

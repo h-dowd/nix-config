@@ -227,7 +227,7 @@ nixos-rebuild switch --flake .#thinkpad
             └─ home-manager.nixosModules.home-manager
                   └─ modules/home/default.nix
                         └─ options, packages, shell, programs, waybar,
-                           wayle, dotfiles, theme, mode-theme
+                           dotfiles, theme
   → system.build.toplevel  (a store path)
   → switch-to-configuration
 ```
@@ -302,13 +302,13 @@ overlay. `scheme.nix` is a bare file that both sides `import`
 | `nix-settings.nix` | `experimental-features`, `auto-optimise-store`, `trusted-users`, GC, registry, daemon scheduling |
 | `secrets.nix` | sops-nix. Declares only what something reads, because a declared secret with no consumer is a plaintext file in `/run/secrets` at every boot ([0012](adr/0012-secrets-in-sops.md)) |
 
-### `modules/home/` — 17 files, 5,444 lines
+### `modules/home/` — 15 files, 4,210 lines
 
 Entry and plumbing:
 
 | File | Purpose |
 |---|---|
-| `default.nix` | 331 lines. The `imports` list, XDG and `mimeApps`, and the session-level pieces: swayidle's four-rung idle ladder, poweralertd, the `wlsunset` and `wlinhibit` units, the masked `swaync.service`, the `noctalia` unit, nextcloud-client, `systemd.user.sessionVariables` |
+| `default.nix` | 289 lines. The `imports` list, XDG and `mimeApps`, and the session-level pieces: swayidle's four-rung idle ladder, poweralertd, the `wlsunset` and `wlinhibit` units, the masked `swaync.service`, nextcloud-client, `systemd.user.sessionVariables` |
 | `options.nix` | Separate for a mechanical reason: a module that declares `options` must put everything else under `config`, so mixing `options.foo` with a bare `home.username` is an evaluation error. Declares `local.checkout` and `local.location` |
 
 Colour:
@@ -316,25 +316,22 @@ Colour:
 | File | Purpose |
 |---|---|
 | `scheme.nix` | Twelve lines; the last is `"heartbox"`. The artefact scheme |
-| `modes.nix` | `{ tiling = …; noctalia = …; }` — the colour-only scheme each desktop mode wears ([0034](adr/0034-colour-follows-the-mode-artefacts-do-not.md)) |
 | `palette.nix` | 55 lines of comment over one line of code: `import ./themes/${import ./scheme.nix}.nix` |
-| `themes/*.nix` | Five files: `heartbox`, `mocha`, `mocha-high-contrast`, `gruvbox`, `nord`. Each is a `rec` attrset holding the colour ramp, semantic roles, sixteen ANSI slots, its own measured `contrastFloor` and `ansiFloor`, `packages` (GTK, Kvantum, cursor, icons) and `apps` (noctalia, nvim). `rec` matters: a missing key is an evaluation error rather than a silent default |
+| `themes/*.nix` | Five files: `heartbox`, `mocha`, `mocha-high-contrast`, `gruvbox`, `nord`. Each is a `rec` attrset holding the colour ramp, semantic roles, sixteen ANSI slots, its own measured `contrastFloor` and `ansiFloor`, `packages` (GTK, Kvantum, cursor, icons) and `apps` (nvim). `rec` matters: a missing key is an evaluation error rather than a silent default |
 
 Config, by tier ([0009](adr/0009-generated-config-over-linked-files.md), and
 `docs/SYSTEM.md` §6 for the tier rules):
 
 | File | Tier | Purpose |
 |---|---|---|
-| `programs.nix` | 1 | 602 lines. Native `programs.*` for kitty, foot, zed, htop, imv, yazi, ncspot, git and bat, all coloured from `palette.nix` |
-| `waybar.nix` | 1 | 929 lines. **The bar in service** ([0051](adr/0051-waybar-is-the-tiling-bar-again.md)). Six layouts generated from one shared module set via `lib.genAttrs`. The four hand-maintained `.jsonc` files had drifted: `custom/window` carried `max-length` 60 in two of them and 80 in a third. Also owns `appIcons`, the appid-to-icon-name map, which generates `icons.css`, `app-icons.json` and the hicolor aliases rofi's window mode needs ([0052](adr/0052-the-bar-draws-the-icon-theme.md)) |
-| `wayle.nix` | 1 | 875 lines. The same shape, six files, and `config.toml` deliberately not among them. Still installed and generated, but nothing starts it ([0051](adr/0051-waybar-is-the-tiling-bar-again.md)) |
+| `programs.nix` | 1 | 628 lines. Native `programs.*` for kitty, foot, zed, htop, imv, yazi, ncspot, git and bat, all coloured from `palette.nix` in their own `settings` |
+| `waybar.nix` | 1 | 972 lines. **The bar in service** ([0051](adr/0051-waybar-is-the-tiling-bar-again.md)). Six layouts generated from one shared module set via `lib.genAttrs`. The four hand-maintained `.jsonc` files had drifted: `custom/window` carried `max-length` 60 in two of them and 80 in a third. Also owns `appIcons`, the appid-to-icon-name map, which generates `icons.css`, `app-icons.json` and the hicolor aliases rofi's window mode needs ([0052](adr/0052-the-bar-draws-the-icon-theme.md)) |
 | `theme.nix` | 1 | 166 lines. GTK, Qt, cursor and icons, with every name taken from the theme file rather than spelled out |
-| `mode-theme.nix` | 1 | 180 lines. The per-mode colour sidecars, keyed by mode and never by scheme |
-| `dotfiles.nix` | 2, 3 | 703 lines. What is still a hand-written file. Exactly one tier-3 entry survives: `corectrl`. Generates `rofi/icons.rasi`, since rofi does not read GTK's icon theme |
+| `dotfiles.nix` | 2, 3 | 539 lines. What is still a hand-written file. Exactly one tier-3 entry survives: `corectrl`. Generates rofi's `colors.rasi` and `icons.rasi`, mango's `universal/colors.conf` and Equibop's theme, whose name an activation step writes into Equibop's own `settings.json` |
 | `packages.nix` | — | 271 lines. `home.packages`, one owner per package |
 | `shell.nix` | — | 131 lines. zsh via `dotDir`, sourcing `conf.d/*` from `initContent` |
 
-### `pkgs/` — the overlay, 963 lines plus generators
+### `pkgs/` — the overlay, 821 lines plus generators
 
 One overlay, one entry point. `pkgs/default.nix` is `{inputs}: final: prev:` and
 defines three groups.
@@ -342,17 +339,14 @@ defines three groups.
 **Theme artefacts built from the palette**
 ([0041](adr/0041-artefacts-are-generated-not-named.md)) — `paletteGtk` (Colloid
 recompiled from generated SCSS), `paletteKvantum` (an achromatic SVG re-tinted by
-luminance), `paletteCursors`, `themeYazi`, `themeZed`, `adwaitaShellIcons`,
-`lock-backgrounds`, `lockscreen`.
+luminance), `paletteCursors`, `themeYazi`, `themeZed`, `lock-backgrounds`,
+`lockscreen`.
 
 **Packages absent from nixpkgs** — `brother-mfc-l3740cdw`, `curseforge`,
 `power-profiles-tlp`.
 
-**Overrides** — `noctalia-qs`, dropping a breakpad input that does not link
-under the GCC 16 stdenv (`docs/gotchas.md` → nixpkgs); `noctalia-shell`, patching
-its mango backend
-([0025](adr/0025-patch-noctalias-mango-backend.md)) and rewired onto that
-`noctalia-qs`; `buildGo125Module`, an alias for the builder sops-nix still names.
+**Overrides** — `buildGo125Module`, an alias for the builder sops-nix still
+names.
 
 | Helper | Purpose |
 |---|---|
@@ -369,12 +363,12 @@ its mango backend
 present for one and absent for the other is a build-time `KeyError` rather than a
 divergence.
 
-### `checks/static.sh` — 4,377 lines
+### `checks/static.sh` — 3,191 lines
 
 Takes five arguments: source root, home generation, system toplevel,
 `schemes.json`, `packages.json`. Sections: Repo, Scripts, Secrets,
 Runtime-selected files, Mango config parse, Generated palette, Theme packages,
-NetworkManager profiles, Generated wayle layouts, Generated waybar configs,
+NetworkManager profiles, Generated waybar configs,
 Battery, Idle, Fonts, Shell completions, Display firmware, Signal traps, Package ownership.
 
 It reads what home-manager actually wrote, under `$GEN/home-files/.config`,
@@ -386,7 +380,7 @@ allowed to skip, and 41 assertions carry a floor
 
 | Directory | Holds |
 |---|---|
-| `mango/` | The compositor. Config split into `universal/`, `tiling/` and `noctalia/`, plus 47 bash scripts under `scripts/` and `waybar/style-solid.css` |
+| `mango/` | The compositor. `config.conf` sources `universal/`; plus 31 bash scripts under `scripts/` and `waybar/style-solid.css` |
 | `nvim/` | The one large hand-rolled config, lazy.nvim, ~22 files. Not generated ([0009](adr/0009-generated-config-over-linked-files.md)) |
 | `zsh/conf.d/` | Shell options, aliases, PATH, bindings, prompt |
 | `swaync/` | `style-body.css` |
@@ -394,7 +388,6 @@ allowed to skip, and 41 assertions carry a floor
 | `gtk-3.0/`, `gtk-4.0/` | `colors.css` and the titlebar button assets |
 | `wlogout/icons/` | Assets only; the config is generated |
 | `equibop/` | `theme-body.css` |
-| `wayle/` | `index.scss` |
 | `corectrl/` | The single out-of-store entry |
 | `scripts/` | Extensionless bash, linked to `~/.scripts` |
 
@@ -442,7 +435,7 @@ pass — so splitting them means two gates that can disagree.
 The alternative is `modules/desktop/` holding both its NixOS and its
 home-manager halves. That is better when features are independent. Here they are
 not: the desktop spans greetd, the compositor, six generated bar layouts, a
-palette, a mode system and 47 scripts, so a feature split would put most of the
+palette and 31 scripts, so a feature split would put most of the
 repo in one directory. The layer split matches the two closures the gate builds.
 
 **`hosts/thinkpad/` exists for a single host.** It is overhead today: 84 lines,
@@ -478,10 +471,9 @@ names its own exit condition: replace it with treefmt-nix rather than growing it
   module means editing two files. `lib.filesystem.listFilesRecursive` would
   remove that, at the price of a stray `.nix` file becoming live config with
   nothing said.
-- Three files hold 2,500 lines: `waybar.nix` (929), `wayle.nix` (875) and
-  `dotfiles.nix` (703). Each does one job, but generated bar layouts could
-  reasonably be their own directory.
-- `static.sh` is a 4,289-line file with sixteen sections and no test framework.
+- `waybar.nix` holds 972 lines. It does one job, but generated bar layouts
+  could reasonably be their own directory.
+- `static.sh` is a 3,191-line file with fifteen sections and no test framework.
   It is the most likely candidate for splitting next.
 - `palette.nix` is 55 lines of comment over one line of code. That follows the
   documented style, but it makes the dispatcher look heavier than it is.

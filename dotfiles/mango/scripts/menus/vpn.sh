@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# WireGuard VPN status/toggle. Emits waybar's `{text,class,tooltip}` JSON, which
-# wayle read unchanged — the format outlived the bar. docs/adr/0051.
+# WireGuard VPN status/toggle. Emits waybar's `{text,class,tooltip}` JSON.
 
 VPN_STATE="/run/user/$(id -u)/mango-vpn"
 DEFAULT_VPN="homelab"
@@ -26,7 +25,7 @@ toggle)
 		nmcli con up "$target" &>/dev/null
 	fi
 	# custom/vpn declares `signal = 10` and polls every 5 s. `|| true` because
-	# the same script runs in noctalia mode, where the pkill matches nothing.
+	# with no bar running the pkill matches nothing.
 	# docs/adr/0056.
 	pkill -RTMIN+10 waybar 2>/dev/null || true
 	;;

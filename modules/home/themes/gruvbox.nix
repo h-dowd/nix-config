@@ -179,8 +179,6 @@ rec {
 
   # --- Applications that hold a theme NAME ----------------------------------
   apps = {
-    noctalia = "Gruvbox";
-
     # The plugin IS the scheme, so `palette` is empty and nvim takes upstream's
     # values. Overriding 20 keys of gruvbox.nvim with values from this file
     # would leave 34 of its own behind — that is the hybrid THEME-MIGRATION §3

@@ -27,8 +27,8 @@
 #   packages        the GTK, Kvantum and cursor artefacts, which name the
 #                   overlay derivations that build them from the colours above,
 #                   plus the icon set, which is still a name (docs/adr/0041)
-#   apps            noctalia and nvim, which hold a scheme's name rather
-#                   than its colours
+#   apps            nvim, which holds a scheme's name rather than its
+#                   colours
 #
 # `packages` and `apps` were the half the palette could not reach — rendered SVG
 # widget art, cursor bitmaps, compiled SCSS, and names other programs resolve

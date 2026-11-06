@@ -83,7 +83,7 @@ Three layers, and almost every question is "which layer does this belong to?"
                   ▼
   ┌─────────────────────────────────────────────────────────────┐
   │ 3. RUNTIME STATE       ~/.local/state, ~/.local/share        │
-  │    Mode, waybar layout, wallpaper, credentials. Mutable,     │
+  │    Waybar layout, wallpaper, credentials. Mutable,           │
   │    deliberately outside the config tree, in no repo.         │
   └─────────────────────────────────────────────────────────────┘
 ```
@@ -150,11 +150,11 @@ All defined as zsh aliases in `modules/home/shell.nix`:
 | `generations` | `nixos-rebuild list-generations` | See what is available to roll back to |
 | `gc` | `nix-collect-garbage --delete-older-than 30d` | Reclaim store space |
 | `search` | `nix search nixpkgs` | Find a package name |
-| `waybar-reload` | Restart waybar from the current state | Wraps `scripts/waybar/waybar-restart.sh`, which is the tiling bar again (ADR 0051). wayle is installed and started by nothing |
-| `mango-reload` | Re-apply the mode and dispatch `reload_config` — which re-fires the `exec=` lines, so **the bar restarts with it** | After a `rebuild` that touched keybinds, rules, autostart or the bar |
+| `waybar-reload` | Restart waybar from the current state | Wraps `scripts/waybar/waybar-restart.sh` |
+| `mango-reload` | Dispatch `reload_config` — which re-fires the `exec=` lines, so **the bar restarts with it** | After a `rebuild` that touched keybinds, rules, autostart or the bar |
 
 The mango scripts are not on `$PATH` — `~/.scripts` is, `~/.config/mango/scripts`
-is not, and putting it there would drop 28 files with names like `mode.sh` into
+is not, and putting it there would drop 31 files with names like `lib.sh` into
 command completion. The two that get typed by hand are aliased instead.
 
 ⚠️ Neither reload alias picks up repo edits on its own. `~/.config/mango` is a
@@ -195,12 +195,11 @@ Rebuilding is not always enough — most desktop pieces need a nudge:
 | kitty | `rebuild`, then `kill -SIGUSR1 $KITTY_PID` or Ctrl+Shift+F5 |
 | foot | `rebuild`, then restart the terminal — no live reload |
 | zed, htop, imv, yazi | `rebuild`, then restart the app |
-| ncspot | `rebuild`; a mode switch re-points `config.toml`, then restart the app |
+| ncspot | `rebuild`, then restart the app |
 | wlogout | `rebuild` only — it is spawned fresh on each invocation |
 | zsh config | `source ~/.config/zsh/conf.d/<file>.zsh`, or a new shell |
 | Neovim plugins | `:Lazy sync` |
 | GTK theme | `~/.config/mango/scripts/system/gtk-apply.sh` |
-| Desktop mode | `~/.config/mango/scripts/modes/<mode>.sh` |
 | `autostart.conf` | **Log out and back in** — `exec-once` only fires at compositor startup |
 
 ⚠️ **Almost nothing is live-editable any more.**
@@ -248,13 +247,11 @@ The routing table. Find the row, edit the file, apply as in §4.
 | Shell options | `dotfiles/zsh/conf.d/00-options.zsh` |
 | `$PATH`, `$EDITOR` | `modules/home/shell.nix` |
 | Default applications | `modules/home/default.nix` (`xdg.mimeApps`) — there is no `mimeapps.list` in this repo |
-| Which scheme the machine wears | `modules/home/scheme.nix` — one string naming a file in `modules/home/themes/`. Change it and rebuild; `docs/adr/0030`. Currently `heartbox`. This is the **artefact** scheme: the built artefacts, the icon set, nvim, and every colour consumer not listed in the row below |
-| Which scheme a desktop mode wears | `modules/home/modes.nix` — one string per mode, same theme files (`docs/adr/0034`). Reaches mango's chrome, noctalia's own palette, and kitty, foot and rofi through a runtime symlink `apply_theme()` re-points. **Not** waybar or swaync, which do not run in noctalia mode and follow `scheme.nix` — so every mode that runs them must wear it. Only `noctalia` may differ; currently both are `heartbox` |
-| The per-mode colours themselves | `modules/home/mode-theme.nix` — generates `kitty/colors-<mode>.conf`, `foot/colors-<mode>` and `rofi/colors-<mode>.rasi`, plus the activation seed for the three links. The colours are **not** in `programs.nix` any more |
-| Any colour | `modules/home/palette.nix` — a dispatcher over `modules/home/themes/*.nix`, evaluating to one flat attrset. Feeds swaylock, imv, nvim, swaync, the lock-background ramp and the bar's `colors.css`. kitty, foot, rofi, ncspot, Equibop and mango take theirs **per mode** instead — `modules/home/mode-theme.nix` and `dotfiles.nix`, from `modes.nix` |
-| Which schemes exist | `modules/home/themes/`. Five ship: `heartbox`, `mocha`, `mocha-high-contrast`, `gruvbox`, `nord`. All native but `heartbox`'s icon set, which is the repo's one stand-in (`native = false`) and is reported on every run. Every scheme **in service** (the artefact one plus every one `modes.nix` names) is contrast-audited by `checks/static.sh`, each against its own declared floors |
+| Which scheme the machine wears | `modules/home/scheme.nix` — one string naming a file in `modules/home/themes/`. Change it and rebuild; `docs/adr/0030`. Currently `heartbox` |
+| Any colour | `modules/home/palette.nix` — a dispatcher over `modules/home/themes/*.nix`, evaluating to one flat attrset. Feeds swaylock, imv, nvim, swaync, the lock-background ramp, the bar's `colors.css`, kitty, foot, rofi, ncspot, Equibop and mango |
+| Which schemes exist | `modules/home/themes/`. Five ship: `heartbox`, `mocha`, `mocha-high-contrast`, `gruvbox`, `nord`. All native but `heartbox`'s icon set, which is the repo's one stand-in (`native = false`) and is reported on every run. The selected scheme is contrast-audited by `checks/static.sh` against its own declared floors |
 | The GTK / Qt / cursor theme | Generated from the selected theme file's colours by `pkgs/default.nix` — `paletteGtk`, `paletteKvantum`, `paletteCursors` (`docs/adr/0041`). yazi's flavour and Zed's theme are written the same way. Only the **icon set** is still a name in the `packages` block |
-| nvim's colourscheme, Zed's theme, noctalia's scheme | the theme file's `apps` block. nvim and Zed take the **artefact** scheme's; noctalia takes the one `modes.nix` gives its mode, since it runs in that mode only (`docs/adr/0034`) |
+| nvim's colourscheme, Zed's theme | the theme file's `apps` block |
 | kitty, foot, zed, htop, yazi, ncspot, imv, wlogout | `modules/home/programs.nix` — generated, no file to edit |
 | GTK/Qt theme, icons, cursor | `modules/home/theme.nix` |
 | Which hand-written dotfiles get linked | `modules/home/dotfiles.nix` |
@@ -264,17 +261,17 @@ The routing table. Find the row, edit the file, apply as in §4.
 
 | Want to change | Edit |
 |---|---|
-| Keybinds | `dotfiles/mango/universal/bind.conf` (all modes) or `bind-shared.conf` |
+| Keybinds | `dotfiles/mango/universal/bind.conf` or `bind-shared.conf` |
 | Window rules | `dotfiles/mango/universal/rule.conf` |
 | Per-workspace layout | `dotfiles/mango/universal/tag.conf` |
-| Startup programs | `dotfiles/mango/universal/autostart.conf`, or the per-mode one |
-| Bar modules | `modules/home/waybar.nix` — **generated**, six configs. `wayle.nix` is the same shape and still built, started by nothing (ADR 0051) |
+| Startup programs | `dotfiles/mango/universal/autostart.conf` |
+| Bar modules | `modules/home/waybar.nix` — **generated**, six configs |
 | Waybar appearance | `dotfiles/mango/waybar/style-*.css` — hand-written rules. Its `colors.css` (from `palette.nix`) and `icons.css` (icon-theme names, ADR 0052) are **generated**; do not add either to `dotfiles/` |
-| rofi appearance | `dotfiles/rofi/config.rasi` — hand-written layout, shared by **every** menu in every mode. Its `lines: 12` is a **fixed height** and only the cap for `rofi -show drun\|run\|window\|calc\|emoji`; hand-built menus size themselves through `lib.sh`'s `rofi_menu <max>` (`-theme-str`, since `-l` loses to the theme — `docs/gotchas.md` → rofi). Its `colors.rasi` is a runtime symlink to `colors-<mode>.rasi` from `modules/home/mode-theme.nix`; do not declare it as an `xdg.configFile` |
-| Session menu | `modules/home/programs.nix` (`programs.wlogout`); `dotfiles/wlogout/` holds only the six PNGs. **Adding an entry means bumping `-b` in `custom/power`'s click in `waybar.nix` too** (and `wayle.nix`, while it is still built) |
+| rofi appearance | `dotfiles/rofi/config.rasi` — hand-written layout, shared by **every** menu. Its `lines: 12` is a **fixed height** and only the cap for `rofi -show drun\|run\|window\|calc\|emoji`; hand-built menus size themselves through `lib.sh`'s `rofi_menu <max>` (`-theme-str`, since `-l` loses to the theme — `docs/gotchas.md` → rofi). Its `colors.rasi` is generated by `dotfiles.nix` |
+| Session menu | `modules/home/programs.nix` (`programs.wlogout`); `dotfiles/wlogout/` holds only the six PNGs. **Adding an entry means bumping `-b` in `custom/power`'s click in `waybar.nix` too** |
 | When the screen locks | `modules/home/default.nix` (`services.swayidle`) |
 | Launcher entries | The launcher is `rofi -show drun` (`docs/adr/0043`) and its entries are the `.desktop` files in the profiles — nothing to declare; menu contents are in the `scripts/menus/*.sh` that build them |
-| rofi's look or modes | `dotfiles/rofi/config.rasi` — one file for both desktop modes |
+| rofi's look or modes | `dotfiles/rofi/config.rasi` |
 | how tall a menu is | `lib.sh`'s `rofi_menu <max>`, at the call site — **not** `config.rasi`, and never `-l` |
 | Wallpaper | `~/.local/share/mango/wallpaper.png` — **not** in the repo |
 
@@ -293,14 +290,13 @@ file from typed options; **there is no config file in this repo at all.**
 
 | What | Module |
 |---|---|
-| kitty, foot | `programs.kitty`, `programs.foot` — colours come **per mode** from `modules/home/mode-theme.nix`, through a runtime symlink (`docs/adr/0034`), not from `palette.nix` directly |
+| kitty, foot | `programs.kitty`, `programs.foot` — colours from `palette.nix`, in `settings` |
 | zed | `programs.zed-editor` |
 | htop, imv, yazi | `programs.htop`, `programs.imv`, `programs.yazi` |
-| ncspot | `programs.ncspot` — **`settings = { }` deliberately**: that leaves `config.toml` unclaimed for the per-mode symlink (`docs/adr/0034`). One value here re-claims it and breaks activation |
+| ncspot | `programs.ncspot` — the theme from `palette.nix`'s `muted` set, in `settings.theme` |
 | wlogout | `programs.wlogout` |
 | swaylock | `programs.swaylock` — **`package = null`**, see §9 |
-| The three waybar layouts (x2 positions = 6 files) | `modules/home/waybar.nix` — generated; `tiling/autostart.conf` starts the bar (ADR 0051) |
-| wayle — the tiling bar's three layouts (x2 positions = 6 files), plus `_colors.scss` | `modules/home/wayle.nix`. **`services.wayle.settings` stays `{ }`**, leaving `config.toml` for the runtime link, exactly as ncspot does (ADR 0045). The *stylesheet* is tier 2 — see below |
+| The three waybar layouts (x2 positions = 6 files) | `modules/home/waybar.nix` — generated; `universal/autostart.conf` starts the bar (ADR 0051) |
 
 This is where a config should end up unless there is a reason it cannot. The
 argument is not tidiness:
@@ -318,7 +314,7 @@ argument is not tidiness:
 - **Values can be shared.** The palette is one file
   (`modules/home/palette.nix`, selecting from `modules/home/themes/`) instead of sixteen hex codes transcribed into
   four with nothing keeping them in step — the terminals, the bar's
-  `colors.css` and rofi's `colors-<mode>.rasi` all derive from it, and
+  `colors.css` and rofi's `colors.rasi` all derive from it, and
   `checks/static.sh` asserts every generated name is used and every reference
   resolves. `icons.css` is the same shape one layer out: the icon *names* the
   bar draws are declared once and checked against the built theme, because a
@@ -332,16 +328,7 @@ rebuild.
 
 Currently: `mango` (with `recursive = true`), `nvim`, `swaync` (body only), `glow`,
 `zsh/conf.d`, and `~/.scripts` — plus the file-level entries `Kvantum`,
-`nwg-look`, `rofi/config.rasi`, `wayle/index.scss` and the `gtk-3.0`/`gtk-4.0`
-assets.
-
-> **`wayle/index.scss` is the same shape as waybar's `style-*.css`**:
-> rules, not settings, beside a generated `_colors.scss`. It is not optional —
-> wayle's `button-gap` and `button-label-padding` clamp at 0.25, so the config
-> layer cannot make a dense bar and the sheet is where the spacing actually
-> lives. It also carries the **state colour** for the three custom modules
-> wayle gives no `thresholds` key, keyed on the class each script already
-> prints. `docs/adr/0048`; `docs/gotchas.md` → Wayle.
+`nwg-look`, `rofi/config.rasi` and the `gtk-3.0`/`gtk-4.0` assets.
 
 > **`rofi/config.rasi` is declared as a FILE, not a directory.** rofi writes a
 > cache and `rofi.png` next to it, so linking the parent would give one path two
@@ -388,17 +375,17 @@ is 220 lines of colour and nothing else. That is the preferred end state for
 this category: generate it if it is only colour, fetch it if it is not, and
 vendor it only if neither works.
 
-Three more files left `dotfiles/` for the same reason in `docs/adr/0032`, each
-because it held a scheme's **name**: `Kvantum/kvantum.kvconfig`,
-`mango/noctalia/settings-pinned.json` and `nvim/lua/plugins/colorscheme.lua`.
+Two more files left `dotfiles/` for the same reason in `docs/adr/0032`, each
+because it held a scheme's **name**: `Kvantum/kvantum.kvconfig` and
+`nvim/lua/plugins/colorscheme.lua`.
 A name is not a colour, so none of them showed up in a search for hex — which is
 exactly how the Equibop theme stayed gruvbox through a whole migration.
 
 `mango/universal/cursor.conf` joined them on 2026-08-18, for the fourth time the
 same way: `universal/settings.conf` named the cursor theme by hand and kept
 Catppuccin's through two scheme changes. It is now generated from
-`config.home.pointerCursor` and `source=`d by `settings.conf`, alongside the
-`colors-*.conf` siblings — so mango, GTK and `~/.icons/default` cannot disagree.
+`config.home.pointerCursor` and `source=`d by `settings.conf`, alongside its
+`colors.conf` sibling — so mango, GTK and `~/.icons/default` cannot disagree.
 `docs/gotchas.md` → Theming has why it was invisible.
 
 ### What is deliberately not generated
@@ -408,12 +395,11 @@ Do not "finish the job" without reading these:
 | Config | Why it stays a file |
 |---|---|
 | `nvim` | ~22 files of lazy.nvim config. `programs.neovim` with Nix-managed plugins is a *rewrite*, trading `:Lazy sync` for a rebuild per plugin bump. The store path already gives reproducibility. **Three files inside it ARE generated** and merged in the store — `lua/plugins/colorscheme.lua`, `lua/config/scheme.lua` and (conditionally) `lua/config/palette.lua`, because the colourscheme follows `scheme.nix` (`docs/adr/0032`) |
-| `mango` | No module exists. `recursive = true` stays for a different reason than it used to: `config.conf` is a symlink `apply_mode` re-points (`docs/adr/0040`), and twelve *generated* files live inside the hand-written tree |
-| `swaync` | `services.swaync` exists and works, but declares the unit that is deliberately **masked**. `autostart.conf` owns swaync's lifecycle so restyles apply on mode switch. Adopting the module flips that ownership and needs its own decision. **Never run both** |
+| `mango` | No module exists. `recursive = true` so the generated files (`colors.conf`, `cursor.conf`, the waybar configs) can live inside the hand-written tree |
+| `swaync` | `services.swaync` exists and works, but declares the unit that is deliberately **masked**. `autostart.conf` owns swaync's lifecycle so restyles apply on reload. Adopting the module flips that ownership and needs its own decision. **Never run both** |
 | waybar CSS | Same reasoning — hand-tuned presentation is data |
 | `glow`, `nwg-look` | No module at this pin |
 | `corectrl` | Writes its own config from the GUI, and that GUI is the program |
-| `noctalia/settings.json` | Same — noctalia rewrites it on every change. **Seeded and pinned, not linked**: see below |
 
 ### Four traps
 
@@ -445,85 +431,6 @@ Delete `~/.config/X` first so home-manager builds a fresh directory.
 `xdg.configFile.<name>` writes *to* `~/.config/<name>`. That is why this repo
 lives at `~/src/nix-config` and not at `~/.config` as it did under Arch.
 
-### A fourth option: seeded, and pinned
-
-`~/.config/noctalia/` is claimed by **nothing** in this repo — not
-`xdg.configFile`, not `home.file`. noctalia rewrites `settings.json` itself, so
-owning the path would be an activation failure, and `mkOutOfStoreSymlink` (tier
-3) would put a file it rewrites back inside the checkout.
-
-Instead `scripts/modes/noctalia.sh` writes it in two halves that differ in
-**when** they apply:
-
-| File | Applied | Holds |
-|---|---|---|
-| `noctalia/settings.json` | once, when there is no file at all | preferences — terminal command, changelog popup, telemetry. Free to change from noctalia's UI afterwards |
-| `noctalia/settings-pinned.json` | on **every** entry into the mode | the keys that would fight this machine — wallpaper, night light, idle, lock-on-suspend, gsettings sync, app theming (off for good, `docs/adr/0036`), plugin updates, and the colour scheme. **Generated** from the selected theme's `apps.noctalia`, so it is not under `dotfiles/` |
-
-Both are partial and deliberately carry no `settingsVersion`; everything else
-comes from the package's own `Assets/settings-default.json`, and upstream's
-migrations all guard on the old key being present, so they no-op against a
-partial file rather than corrupting it. The pin is a `jq -s '.[0] * .[1]'`
-recursive merge, so it replaces the leaves it names and leaves everything else
-noctalia has written alone.
-
-⚠️ **Editing the seed does nothing to this machine** — it has run the mode, so
-the file exists and the seed is never consulted again. That is the half the pin
-exists to answer. A setting that must hold goes in `settings-pinned.json`; the
-cost is that noctalia's own Settings UI will visibly revert it on the next mode
-switch, which is deliberate for the colour scheme (the palette is machine-wide,
-§6 and `modules/home/palette.nix`) and is why everything else stays in the seed.
-
-Reach for this shape when a program rewrites its config *and* its defaults are
-mostly right: a known-good first run, plus a small set of invariants that
-keep holding, without signing up to own the file forever.
-`docs/adr/0020`, amended by `docs/adr/0022`.
-
-### Removing noctalia
-
-The whole mode comes out in one pass, and `nix flake check` fails until it is
-complete — `checks/static.sh` asserts the mode list and the mode files agree in
-both directions, so a half-removal cannot pass the gate. The four noctalia-only
-assertions (settings keys, colour scheme, layer namespaces, package present) are
-gated on `dotfiles/mango/noctalia/` existing, so they leave with the directory
-rather than failing after it.
-
-**This list is tested, not asserted** (2026-08-16): applied to a scratch copy of
-the tree it leaves `checks/static.sh` at 30 passed / 0 failed, the four
-noctalia-gated assertions correctly skipping. Deleting only the directory fails
-on two counts. Seven files go, ten are edited.
-
-```
-git rm -r dotfiles/mango/noctalia \
-          dotfiles/mango/scripts/modes/noctalia.sh \
-          dotfiles/mango/scripts/modes/noctalia-start.sh
-```
-
-Then revert, in order of how easy each is to miss:
-
-| File | Change |
-|---|---|
-| `scripts/desktop-mode.sh` | drop `"noctalia"` from `MODES=(…)` — keep it one line |
-| `scripts/lib.sh` | delete `mode_has_waybar()` |
-| `scripts/waybar/waybar-{restart,layout,position}.sh` | delete the three guards that call it |
-| `tiling/autostart.conf` | delete the `systemctl --user stop noctalia` line |
-| `modules/home/default.nix` | delete `systemd.user.services.noctalia` |
-| `modules/system/desktop.nix` | delete `noctalia-shell` |
-| `modules/home/default.nix` | drop `NOCTALIA_PAM_SERVICE` with the unit |
-| `scripts/menus/shell.sh` | delete the one `fb=none` row, dock. Every other row has a fallback and keeps working, `calendar` and `control-center` included; the noctalia branch is only reached when the mode is selected |
-| `pkgs/default.nix` | delete `lockscreen`'s noctalia branch and its `noctalia-shell` runtime input (`docs/adr/0024`); what is left is the swaylock wrapper it was |
-| `pkgs/default.nix` | delete the `noctalia-shell` overrideAttrs — the `mmsg` verb patch (`docs/adr/0025`) |
-
-Every **shared** bind can stay exactly as it is: they all name
-`scripts/menus/shell.sh`, whose noctalia branch is only reached when
-`current_mode` says so, which after this is never. The nine fallbacks — rofi,
-swaync, `lockscreen -f` — are what a machine without noctalia was using
-anyway. `universal/bind-shared.conf` keeps its name; it was
-`bind-tiling-hud.conf` and that name is the one that would be wrong.
-
-Finally, `rm -rf ~/.config/noctalia ~/.cache/noctalia` — neither is managed, so
-nothing else will clear them.
-
 ---
 
 ## 7. The desktop
@@ -531,84 +438,42 @@ nothing else will clear them.
 ### Mangowm
 
 A Wayland compositor in the dwl/dwm lineage: tags (workspaces), a master/stack
-layout, keyboard-driven. Config lives in `dotfiles/mango/`, split into:
+layout, keyboard-driven. Config lives in `dotfiles/mango/`: `config.conf`, which
+mango reads, `source=`s everything under `universal/` — binds, window rules,
+tags, settings, autostart — and the generated `universal/colors.conf` and
+`cursor.conf`. One look: no animations, no gaps, square corners, a 1px border.
+There is no desktop-mode switch (`docs/adr/0061`).
 
-- **`universal/`** — shared across modes: binds, window rules, tags, settings, autostart
-- **`tiling/`, `noctalia/`** — per-mode compositor config and autostart.
-  `noctalia/` carries three more: `bind.conf` (keys that exist in no other
-  mode), and `settings.json` + `settings-pinned.json`, which are written into
-  `~/.config/noctalia/` rather than linked (§6)
+### Bar layouts
 
-**`config.conf` is generated, not authored.** A mode script copies
-`<mode>/<mode>.conf` over it verbatim; that copy is what mango
-reads, and it `source=`s every keybind, rule and autostart file. It is
-gitignored because tracking it would mean committing a duplicate that changes
-on every mode switch.
-
-> **Fresh clone:** there is no `config.conf`, so mango starts on built-in
-> defaults — no waybar, no keybinds — until running
-> `~/.config/mango/scripts/modes/tiling.sh` once and log back in.
-
-### Modes and layouts
-
-Three independent switches, all on the `/` key:
+Two independent switches, both on the `/` key:
 
 | | Options | Bind | State file |
 |---|---|---|---|
-| **Desktop mode** | `tiling`, `noctalia` | `SUPER+CTRL+/` | `~/.local/state/mango/current-mode` |
-| **Waybar layout** | `full`, `focus`, `minimal` | `SUPER+/` | `~/.local/state/mango/waybar-layout` |
-| **Waybar position** | `top`, `bottom` | `SUPER+SHIFT+/` | `~/.local/state/mango/waybar-position` |
+| **Waybar layout** | `full`, `focus`, `minimal` | `SUPER+/` | `~/.local/state/mango/bar-layout` |
+| **Waybar position** | `top`, `bottom` | `SUPER+SHIFT+/` | `~/.local/state/mango/bar-position` |
 
-Mode selects the compositor config and autostart set. Layout selects which
-waybar modules are shown. Position moves the bar between screen edges. There is
-one stylesheet, `style-solid.css` — hud had a second until that change, and
-was also the one mode that overrode the layout pick.
-
-**Mode also selects the look, and noctalia's is not tiling's.** `tiling` is the
-flat set — no animations, no gaps, square corners, a 1px border. `noctalia` overrides all of it after the `source=` lines: 12px corners
-matching noctalia's own frame radius, 8/12px gaps, a 2px border, zoom open and
-close, and shadows on floating windows. Compositor blur stays off (the amdgpu
-freeze, `docs/gotchas.md` → Power), layer shadows and layer animations stay off
-for anything `^noctalia-` because the shell draws and animates its own panels.
-`docs/adr/0022`.
-
-**`SUPER+/` offers `full`, `focus` and `minimal`, and every one of them is
-reachable.** That was not true until that change: `hud` was a mode that also
-forced its own layout, so a pick made in that mode was stored and then silently
-overridden.
-
-**`noctalia` has no waybar at all**, so `SUPER+/` and `SUPER+SHIFT+/` mean
-"configure the bar" rather than "configure waybar": in noctalia mode they open
-its settings panel and toggle its bar, through `scripts/menus/shell.sh` like
-every other mode-dependent key (`docs/adr/0023`). Until 2026-08-16 both simply
-refused with a `notify-send` — correct, and still two dead keys out of a set
-that small.
-
-`mode_has_waybar()` in `lib.sh` stays, and so do the three guards that call it:
-nothing routes a waybar script into noctalia mode any more, but the scripts are
-still runnable by hand and a guard that is never reached costs nothing next to
-one that was needed and removed. See §6 for the mode, and `docs/adr/0020`.
+Layout selects which waybar modules are shown. Position moves the bar between
+screen edges. There is one stylesheet, `style-solid.css`.
 
 Waybar configs are generated as the **full layout × position matrix**:
-`config-<layout>-<position>.jsonc`, 4 × 2 = 8 files. `waybar-restart.sh` only
-builds a filename from the three state values; nothing is rewritten at runtime.
+`config-<layout>-<position>.jsonc`, 3 × 2 = 6 files. `waybar-restart.sh` only
+builds a filename from the two state values; nothing is rewritten at runtime.
 
-The first two open a rofi picker; position is a **straight toggle**, since
-with two options a menu costs more keystrokes than the thing it selects.
+Layout opens a rofi picker; position is a **straight toggle**, since with two
+options a menu costs more keystrokes than the thing it selects.
 `waybar-position.sh` also accepts an explicit `top`/`bottom` argument for
 scripting.
 
-All three are read by **`scripts/waybar/waybar-restart.sh`**, which is the only
-place that knows how they combine — so login, mode switch, layout switch,
-position toggle and `reload_config` all land on the same result.
+Both are read by **`scripts/waybar/waybar-restart.sh`**, which is the only place
+that knows how they combine — so login, layout switch, position toggle and
+`reload_config` all land on the same result.
 
 **The state paths and their defaults live in `scripts/lib.sh`**, sourced by
 every script that touches them. Each one used to re-derive
 `${XDG_STATE_HOME:-$HOME/.local/state}/mango` and its own fallback value, which
-is exactly how the mode switch broke one-way on 2026-07-31 — one reader
-disagreed with the writers about the path, silently. `lib.sh` also holds
-`apply_mode()`, the body `modes/tiling.sh` and the since-removed `modes/hud.sh`
-(that change) each used to carry as a byte-identical copy.
+is exactly how the old mode switch broke one-way on 2026-07-31 — one reader
+disagreed with the writers about the path, silently.
 
 > **How position actually works:** waybar takes only `-c`, `-s` and `-b` on the
 > command line — `position` is a config key with no flag. So each position is a
@@ -638,29 +503,24 @@ disagreed with the writers about the path, silently. `lib.sh` also holds
 |---|---|
 | `SUPER+Return` | foot (terminal) |
 | `SUPER+SHIFT+Return` | kitty |
-| `SUPER+Space` | Launcher — `rofi -show drun`, or noctalia's own in `noctalia` mode |
-| `SUPER+SHIFT+Space` | Apps **and** open windows in one list (`rofi -show combi`, `combi-modes: drun,window`) — rofi in every mode |
-| `SUPER+=` | Calculator (`rofi -show calc`, result to the clipboard) — rofi in every mode |
+| `SUPER+Space` | Launcher — `rofi -show drun` |
+| `SUPER+SHIFT+Space` | Apps **and** open windows in one list (`rofi -show combi`, `combi-modes: drun,window`) |
+| `SUPER+=` | Calculator (`rofi -show calc`, result to the clipboard) |
 | `SUPER+;` | Emoji picker |
 | `SUPER+B` | Zen browser |
 | `SUPER+E` | Thunar |
 | `SUPER+SHIFT+E` | Open a file — `rofi -show recursivebrowser`, recursive from `$HOME`. The same job as Thunar with rofi instead of a GUI, and the only menu here that reaches a file rather than a system reading |
-| `SUPER+W` | Window switcher (`rofi -show window`) — a picker, unlike `SUPER+Tab`. rofi in **every** mode, incl. noctalia: see §13 |
+| `SUPER+W` | Window switcher (`rofi -show window`) — a picker, unlike `SUPER+Tab` |
 | `SUPER+V` | Clipboard history |
-| `SUPER+P` | Bitwarden — rofi in every mode |
+| `SUPER+P` | Bitwarden |
 | `SUPER+CTRL+N` / `+B` | Network / Bluetooth |
-| `SUPER+CTRL+V` | VPN menu — rofi in every mode |
+| `SUPER+CTRL+V` | VPN menu |
 | `SUPER+F1` | rofi's own keybindings (`rofi -show keys`). Rofi's, not mango's — for mango's, read `dotfiles/mango/universal/bind*.conf` |
-| `SUPER+CTRL+W` | Weather panel — rofi in every mode. **Enter** opens the forecast page, **Ctrl+Enter** refetches and redraws. Replaced wayle's `dropdown:weather`, which no key could open (`docs/adr/0050`) |
+| `SUPER+CTRL+W` | Weather panel. **Enter** opens the forecast page, **Ctrl+Enter** refetches and redraws (`docs/adr/0050`) |
 
-⚠️ **Nine of these keys change owner with the desktop mode.** They all route
-through `scripts/menus/shell.sh`, which holds the one table pairing each action
-with a noctalia IPC call and its rofi/wayle equivalent — see §6 and
-`docs/adr/0023`. The keys marked "rofi in every mode" stay put for reasons that differ per key:
-noctalia's launcher has a calculator but no IPC function to open it directly, no
-`rbw` front end at all, and its network panel does not know about the PIA
-profiles this repo declares. `SUPER+W` is a third case — noctalia *has*
-`launcher windows` and it lists nothing here (§13).
+Most of these go through `scripts/menus/shell.sh`, the one action table the
+binds call; `checks/static.sh` asserts every row is bound and every bound action
+is a row.
 
 **Windows**
 
@@ -711,43 +571,26 @@ Tags 7 and 9 default to `monocle`; the rest are `tile` (`universal/tag.conf`).
 | Key | Action |
 |---|---|
 | `SUPER+R` | Reload mango config |
-| `SUPER+/` | Configure the bar — waybar's layout picker, or noctalia's settings panel |
-| `SUPER+SHIFT+/` | Waybar top/bottom, or noctalia's bar on/off |
-| `SUPER+CTRL+/` | Desktop mode picker |
-| `SUPER+SHIFT+N` | Do not disturb — `swaync-client -d -sw` in `tiling`, noctalia's own in `noctalia`. It was `wayle notify dnd` for three days, and `swaync-client` against an unstarted daemon for a month before that — which exits 0 (`docs/adr/0047`, `0051`) |
+| `SUPER+/` | Waybar layout picker |
+| `SUPER+SHIFT+/` | Waybar top/bottom |
+| `SUPER+SHIFT+N` | Do not disturb — `swaync-client -d -sw`. `swaync-client` against an unstarted daemon exits 0 (`docs/adr/0047`) |
 | `SUPER+SHIFT+S` / `SUPER+Delete` | Lock screen |
-| `SUPER+Escape` | Power menu — noctalia's session menu in `noctalia` mode |
-| `SUPER+SHIFT+P` | Cycle TLP power profile — every mode. Not ACPI: `platform_profile` is a placebo here (§9, `docs/adr/0017`) |
-| `SUPER+SHIFT+A` | Keep awake — holds a Wayland idle inhibitor, the only thing that stops swayidle's ladder from inside the session. `wlinhibit.service` in `tiling`, quickshell's own in `noctalia` (§9, `docs/adr/0031`). The bar glyph follows within 2 s; the key raises no notification, so that poll **is** the feedback |
-| `SUPER+C` | Control centre — thirteen rows in one list (network, bluetooth, VPN, volume, microphone, night light, keep awake, power profile, phone, weather, do-not-disturb, notifications, bar), each showing the state it is actually in, or noctalia's own panel in `noctalia` mode. It is a **reader**: nothing in it changes anything itself, and five rows take their icon and their state from the waybar module that owns the fact (`docs/adr/0033`, `docs/adr/0038`). Weather is the one row with two verbs, and they are two keys: **Enter** opens the forecast and closes the panel, **Ctrl+Enter** refetches and stays (`docs/adr/0044`). On any other row Ctrl+Enter just re-renders |
-| bar button, every layout | The same control centre, through the same router — `custom/control-center` in `waybar.nix`, `on-click` running `shell.sh control-center`, so the button and the key both reach noctalia's panel in `noctalia` mode |
+| `SUPER+Escape` | Power menu |
+| `SUPER+SHIFT+P` | Cycle TLP power profile. Not ACPI: `platform_profile` is a placebo here (§9, `docs/adr/0017`) |
+| `SUPER+SHIFT+A` | Keep awake — `wlinhibit.service` holds a Wayland idle inhibitor, the only thing that stops swayidle's ladder from inside the session (§9, `docs/adr/0031`). The bar glyph follows within 2 s; the key raises no notification, so that poll **is** the feedback |
+| `SUPER+C` | Control centre — thirteen rows in one list (network, bluetooth, VPN, volume, microphone, night light, keep awake, power profile, phone, weather, do-not-disturb, notifications, bar), each showing the state it is actually in. It is a **reader**: nothing in it changes anything itself, and five rows take their icon and their state from the waybar module that owns the fact (`docs/adr/0033`, `docs/adr/0038`). Weather is the one row with two verbs, and they are two keys: **Enter** opens the forecast and closes the panel, **Ctrl+Enter** refetches and stays (`docs/adr/0044`). On any other row Ctrl+Enter just re-renders |
+| bar button, every layout | The same control centre — `custom/control-center` in `waybar.nix`, `on-click` running `shell.sh control-center` |
 | `Print` / `CTRL+Print` | Region screenshot / full screen to clipboard |
-| `CTRL+ALT+\` / `+Backspace` | Notification history / clear all. In `tiling` that is `swaync-client -t` and `-C -sw` — swaync's own panel. The rofi list that replaced it for three days read `com.wayle.Notifications1`; `swaync-client` has count, dnd and toggle and no list to rebuild one from (`docs/adr/0051`) |
+| `CTRL+ALT+\` / `+Backspace` | Notification history / clear all — `swaync-client -t` and `-C -sw`, swaync's own panel. `swaync-client` has count, dnd and toggle and no list to build a rofi one from |
 | `SUPER+SHIFT+CTRL+M` | Quit the compositor |
 | Media & brightness keys | Volume, playback, backlight (via wpctl / playerctl / brightnessctl) |
 | `XF86AudioMicMute` | Mic mute. Its state is on the bar (waybar's `pulseaudio`) and in the control centre; the ThinkPad LED is no longer the only place it shows |
 | Power button | Tap hibernates, hold powers off — logind, not a mango bind (§9) |
 
-**noctalia mode only**
-
-One key has no analogue under waybar and swaync, so it is bound in
-`noctalia/bind.conf` and exists only while that mode is selected — a shared bind
-would be a key that does nothing and exits 0 in tiling.
-
-The list has shrunk three times. `SUPER+SHIFT+A` left on 2026-08-18, when the
-idle inhibitor got a unit tiling can drive too (`docs/adr/0031`); `SUPER+C` on
-2026-08-19, when the control centre turned out to need no new state, only a list
-of the owners that already existed (`docs/adr/0033`); `SUPER+D` on 2026-08-28,
-when `menus/calendar.sh` gave the other modes a calendar (`docs/adr/0058`).
-
-| Key | Action |
-|---|---|
-| `SUPER+SHIFT+D` | Dock |
-
 ### Waybar
 
 Status bar. **The layouts are generated by `modules/home/waybar.nix`** — there
-are no `config*.jsonc` files in this repo; the eight
+are no `config*.jsonc` files in this repo; the six
 `config-<layout>-<position>.jsonc` are written into `~/.config/mango/waybar/`
 alongside the hand-written CSS, which stays a file. Each module is defined once
 and a layout is a list of names, so a name with no definition is an **eval
@@ -768,11 +611,8 @@ phone · pulseaudio backlight night-mode · idle-inhibitor power-profile battery
 control-center tray · power. On the left: clock weather · workspaces ·
 mpris minimized. The centre is the focused window's title.
 
-> There is one stylesheet, `style-solid.css`. `style-hud.css` went with the hud
-> mode, and a third, `style.css`, was deleted in 2026-08 as unreachable —
-> `current-mode` never held a value that selected it, so its fallback branch
-> could not be taken. Check `waybar-restart.sh` can actually reach a file before
-> adding one.
+> There is one stylesheet, `style-solid.css`. Check `waybar-restart.sh` can
+> actually reach a file before adding another.
 
 > The sheet asks for `"Symbols Nerd Font Mono", "3270 Nerd Font", monospace` in
 > its `*` rule, in that order, at **13.5px and bold**. `checks/static.sh`
@@ -819,7 +659,7 @@ is missing from the bar, **run its script by hand first**:
 > `docs/adr/0038`.
 
 > **`menus/calendar.sh` is the calendar**, on the clock's left click and on
-> `SUPER+D` in every mode. A month grid with ISO week numbers, today bold and
+> `SUPER+D`. A month grid with ISO week numbers, today bold and
 > underlined, the current week preselected. `Ctrl+Enter` and `Shift+Enter` page
 > the month; `Enter` returns to today, then closes. It replaced `{calendar}` in
 > the clock's tooltip, which could not be navigated or kept open. The grid is
@@ -839,13 +679,8 @@ is missing from the bar, **run its script by hand first**:
 > **On the bar the three buttons are: left opens the panel, middle refetches,
 > right opens the forecast page.** The panel is `weather.sh panel` —
 > rofi, reading the cache this script already keeps, so there is one fetch of
-> open-meteo rather than two. On wayle's copy `clock`'s right click opens it as
-> well, because wayle's default there is `dropdown:weather`. It was that
-> dropdown from 2026-08-25 until 2026-08-26: wayle's own panel, at its own
-> coordinates, opened by a mouse click and by nothing else, since no wayle
-> dropdown answers a key. `docs/adr/0050` has the reversal on that one
-> point. waybar's `on-click` ran `refresh` until the same day — a fetch whose
-> only output is a two-digit label.
+> open-meteo rather than two (`docs/adr/0050`). waybar's `on-click` ran
+> `refresh` until 2026-08-26 — a fetch whose only output is a two-digit label.
 
 > **The panel is a `-mesg` header over a forecast list.** The header is the
 > current reading — temperature at `xx-large`, place and condition, then today's
@@ -882,14 +717,14 @@ is missing from the bar, **run its script by hand first**:
 
 | Piece | Role |
 |---|---|
-| **rofi** | The launcher (`SUPER+Space`, `-show drun` — `docs/adr/0043`) and every structured menu — bluetooth, clipboard, volume, network, VPN, mode and layout pickers — plus `calc` and `emoji` as plugin modes. No daemon. Config *and* theme in `dotfiles/rofi/config.rasi`, one file for both modes. Grepping for `rofi` also substring-matches `power-profile` |
+| **rofi** | The launcher (`SUPER+Space`, `-show drun` — `docs/adr/0043`) and every structured menu — bluetooth, clipboard, volume, network, VPN, the layout picker — plus `calc` and `emoji` as plugin modes. No daemon. Config *and* layout in `dotfiles/rofi/config.rasi`; colours in the generated `colors.rasi`. Grepping for `rofi` also substring-matches `power-profile` |
 | **rofi-rbw** | Bitwarden (`SUPER+P`). Not a rofi plugin — a front-end over `rbw` |
-| **swaync** | **The notification daemon in `tiling` again** (`docs/adr/0051`), started by `tiling/autostart.conf` after wayle is stopped; noctalia's shell is the daemon in `noctalia`. Its unit stays masked so that autostart owns the lifecycle — which also means `swaync-client` only works while swaync itself holds `org.erikreider.swaync.cc`. See `docs/gotchas.md` → Waybar |
+| **swaync** | The notification daemon (`docs/adr/0051`), started by `universal/autostart.conf`. Its unit stays masked so that autostart owns the lifecycle — which also means `swaync-client` only works while swaync itself holds `org.erikreider.swaync.cc`. See `docs/gotchas.md` → Waybar |
 | **awww** | Wallpaper daemon (the swww fork; the binary is `awww`) |
-| **wlsunset** | Night light, owned by a systemd user unit. `tiling` mode only — `noctalia` mode stops it (`docs/adr/0037`) |
+| **wlsunset** | Night light, owned by a systemd user unit |
 | **wlogout** | Session menu behind the waybar power icon — lock, logout, suspend, hibernate, reboot, shutdown |
-| **swaylock** | Screen lock in tiling, and the fallback in noctalia mode (`swaylock-effects`). Needs the hand-declared PAM service in `desktop.nix`; configured by `programs.swaylock` (§9) |
-| **lockscreen** | The wrapper every lock path actually calls — hands the lock to noctalia in noctalia mode, otherwise picks a background from the pool and execs swaylock (§9, `docs/adr/0018`, `docs/adr/0024`) |
+| **swaylock** | Screen lock (`swaylock-effects`). Needs the hand-declared PAM service in `desktop.nix`; configured by `programs.swaylock` (§9) |
+| **lockscreen** | The wrapper every lock path actually calls — picks a background from the pool and execs swaylock (§9, `docs/adr/0018`) |
 | **swayidle** | Lock handler *and* idle daemon — `lockscreen` on `before-sleep`/`lock-session`, plus the dim → lock+blank → suspend ladder (§9) |
 | **poweralertd** | Low-battery notifications into whichever shell holds `org.freedesktop.Notifications`. `-S` keeps it to power supplies, so headphones don't alert (§9) |
 | **KDE Connect** | Phone integration; `kdeconnectd` from autostart |
@@ -1006,12 +841,7 @@ busctl get-property org.freedesktop.UPower.PowerProfiles \
   org.freedesktop.UPower.PowerProfiles ActiveProfile
 ```
 
-The visible consumer is **noctalia's control-centre power button**
-(`SUPER+CTRL+C`), which is in its shipped default shortcut row and was greyed
-out until this existed. ⚠️ **It cycles balanced → performance → fanless**, so a
-third click lands on the 1.1 GHz cap — deliberate on noctalia's part, accepted
-here because it names the profile in a toast. `SUPER+SHIFT+P` gets back to
-balanced.
+Its consumers are `powerprofilesctl` and GNOME's power page.
 
 Two things it deliberately does not do. **Profile holds are declined** with a
 `NotSupported` error rather than recorded and ignored, so no application can pin
@@ -1019,11 +849,6 @@ a profile behind the caller. And **it refuses to start** when TLP reports no pro
 rather than publishing a guess; `BindsTo=tlp.service` means a stopped TLP takes
 the bus name with it. Both failures land in `systemctl status
 power-profiles-tlp`.
-
-> noctalia's **battery-panel slider** is a separate control and is off by
-> default. It is a per-instance setting on the Battery *bar widget*, so enabling
-> it in the seed would mean owning noctalia's whole bar layout — turn it on in
-> noctalia's settings panel instead (Bar → Battery → show power profiles).
 
 ### Battery stops below 100%
 
@@ -1159,12 +984,11 @@ the failure it exists to prevent.
 
 The same unit wraps wlinhibit in `systemd-inhibit --what=handle-lid-switch
 --mode=block`, so a closed lid neither hibernates nor locks while it is held.
-Check with `systemd-inhibit --list | grep lid`. noctalia's own keep-awake holds
-no lid lock.
+Check with `systemd-inhibit --list | grep lid`.
 
 The unit is the state. It survives `waybar-reload`, both bar switches, a switch
-to `minimal` (which does not carry the module) and both desktop modes;
-it ends with the session and not before. Nothing starts it at login.
+to `minimal` (which does not carry the module) and a `mango-reload`; it ends
+with the session and not before. Nothing starts it at login.
 
 This used to be waybar's built-in `idle_inhibitor`, whose state was a bool in
 the bar process — clickable and nothing else, and released by every one of those
@@ -1173,14 +997,6 @@ events without a word. docs/adr/0031.
 ⚠️ **Red 󰒳 means the unit FAILED and the ladder is live.** The state lives
 outside the bar now, so the bar reports rather than holds: `systemctl --user
 status wlinhibit`.
-
-**Switching to noctalia releases it.** noctalia holds keep-awake over
-quickshell's own `IdleInhibitor` and exposes no way to read that state back, so
-`apply_mode` hands over rather than leave two inhibitors and one honest
-indicator: one owner per mode, with a notification when it actually released
-something. `SUPER+SHIFT+A` re-arms it in noctalia. Coming back out does **not**
-restore it — the handover is one-way, because noctalia's IPC cannot be asked
-what it is holding.
 
 `systemctl --user stop swayidle` (and `start` after) remains the bigger hammer:
 it stops the ladder rather than inhibiting it.
@@ -1193,22 +1009,11 @@ existed, swaylock was reachable only by hand (`SUPER+Delete`, `SUPER+SHIFT+s`,
 the wlogout button) and **every lid-close resumed straight to the unlocked
 desktop**.
 
-**Which locker runs follows the desktop mode** (`docs/adr/0024`). In tiling
-it is swaylock, as it always was. In `noctalia` mode, with the unit
-running, `lockscreen` asks the shell for its own lock screen first — the same
-one `SUPER+Delete` opens — waits a second, and then runs swaylock anyway.
-swaylock exits non-zero exactly when something else already holds the
-`ext-session-lock-v1` lock, so that last step is simultaneously the fallback and
-the *proof* that the session is locked. Neither outcome can leave it unlocked;
-only which lock screen appears is at stake.
-
 swayidle rather than another `powerManagement` hook, for two reasons:
 
 - It holds a **logind sleep inhibitor** — `-w` makes it wait for `lockscreen -f`
   to fork, and swaylock forks only once the lock surface is up. So the lock is
-  guaranteed present before the suspend, not racing it. In noctalia mode the
-  same promise is kept by the failing swaylock above, which cannot fail until
-  the compositor has confirmed the session locked.
+  guaranteed present before the suspend, not racing it.
 - A root sleep hook runs inside `sleep-actions.service`, whose cgroup is
   **killed when the unit stops on resume** — taking the swaylock it just
   started with it. That leaves the compositor locked with no client, which
@@ -1234,8 +1039,8 @@ keeps the ring up rather than fading it out.
 Both options are **swaylock-effects extensions**, which is why the module sets
 `package = null` — see the trap in `docs/gotchas.md`.
 
-This replaced three separate copies of the same theme: `mango/tiling/swaylock.conf`,
-the same file under the since-removed `mango/hud/`, and an **untracked** hand-written
+This replaced three separate copies of the same theme: two per-mode
+`swaylock.conf` files, and an **untracked** hand-written
 `~/.config/swaylock/config` that had been quietly supplying the theme to every
 bare `swaylock -f` all along. The per-mode files are deleted; there is one lock
 screen.
@@ -1436,11 +1241,10 @@ What is running, and who owns it.
 | Unit | Purpose |
 |---|---|
 | `polkit-gnome-authentication-agent-1` | Polkit prompts (the `lxpolkit` autostart line is a dead Arch leftover) |
-| `wlsunset` | Night light — reads its temperature from `~/.local/state/mango/night-temp`. **`Restart=always`**, because noctalia SIGTERMs it on every start and systemd counts that as a clean exit (`docs/gotchas.md` → night light). **Stopped on every entry into `noctalia` mode**, which cannot reach it, and not restarted on the way out (`docs/adr/0037`) |
+| `wlsunset` | Night light — reads its temperature from `~/.local/state/mango/night-temp`. `Restart=always` |
 | `micmute-led` | Syncs the mic-mute LED with PipeWire. **The only place `pactl` exists** — it comes from this unit's `path`, not `systemPackages`. No longer the sole mic indicator: waybar's `pulseaudio` carries `{format_source}` since 2026-08-19, so this unit failing is now visible rather than silent (`docs/gotchas.md` → Waybar) |
 | `nextcloud-client` | Cloud sync — credentials in gnome-keyring's `Default` collection, config at `~/.config/Nextcloud/`. If it asks for a login, check the unit's `XDG_CONFIG_HOME` before anything else (`docs/gotchas.md` → Session environment) |
-| `cliphist` (+ `cliphist-images`) | Clipboard history behind `SUPER+V` — read by rofi, and by noctalia's own clipboard view in `noctalia` mode |
-| `noctalia` | The `noctalia` desktop mode's shell — bar, notifications, panels. **Started only by that mode's autostart**, never at login; `PartOf` the session target. `Restart=on-failure` with a start limit, so it can wedge: `scripts/modes/noctalia-start.sh` clears that on every entry (`docs/adr/0022`) |
+| `cliphist` (+ `cliphist-images`) | Clipboard history behind `SUPER+V` — read by rofi |
 | `mango-session.target` | A marker other units can hang off; started from `autostart.conf` |
 | `swaync.service` | **Masked** — autostart owns swaync instead |
 
@@ -1535,27 +1339,10 @@ invisible in logs and reported as "X is missing".
 
 Things that are true today and worth knowing. *(Reviewed 2026-08-20.)*
 
-- **Each desktop mode names its own scheme** in `modules/home/modes.nix`
-  (`docs/adr/0034`). Following the mode: mango's window
-  chrome, noctalia's own palette, Equibop's theme filename, and kitty, foot,
-  rofi and ncspot through a runtime symlink. **Not** following it, permanently:
-  GTK and Qt widget art, the icon set and nvim, which are built artefacts and
-  wear `modules/home/scheme.nix` for the whole machine. A mode that names a
-  different scheme therefore gets a GTK file dialog in the machine's scheme
-  inside that mode's chrome. Both modes name `heartbox` today, so the question
-  does not arise; set them apart and it does.
-- **foot and ncspot keep their old colours until restarted** across a mode
-  switch. foot 1.27 has no config re-read at all — `SIGUSR1`/`SIGUSR2` only pick
-  between sections it already loaded — so the swap reaches new windows only;
-  ncspot reads `config.toml` once at startup. The mode switch notification names
-  whichever is running; `docs/gotchas.md` → Theming has the detail. kitty
-  reloads in place, and rofi re-reads on every launch.
-
-- **noctalia mode has no night light, and entering it turns tiling's off.**
-  Neither of wlsunset's controls — the bar module, the control centre — runs
-  there, and noctalia's own night light is pinned off because wlsunset holds the
-  gamma control. So the mode ends it on every entry and notifies; it stays off
-  on switching back, one click from the bar (`docs/adr/0037`).
+- **foot and ncspot keep their old colours until restarted** after a rebuild.
+  foot 1.27 has no config re-read at all — `SIGUSR1`/`SIGUSR2` only pick between
+  sections it already loaded — and ncspot reads `config.toml` once at startup.
+  kitty reloads in place, and rofi re-reads on every launch.
 
 - **Nothing here can hold off the idle ladder except a Wayland idle inhibitor.**
   `systemd-inhibit --what=idle` does not reach swayidle, so unattended work on
@@ -1570,56 +1357,6 @@ Things that are true today and worth knowing. *(Reviewed 2026-08-20.)*
   else behind it) and is untried. Since 2026-08-12 the idle rung suspends, so
   the machine finally produces samples to test it against — see
   `docs/adr/0016`.
-- ⚠️ **noctalia's Workspace and ActiveWindow widgets render nothing, and the
-  Workspace widget is the centre of its bar.** Found 2026-08-16 by reading the
-  running system rather than the config. `MangoService.qml` *is* selected —
-  the log says `Initializing MangoWC/DWL compositor integration (DWL protocol)`
-  — but every one of its paths is guarded on `DwlIpc.available`, and
-  `rebuildWorkspaces()` and `updateWindows()` both return early when it is
-  false. It is false permanently: quickshell probes for the Wayland global
-  `zdwl_ipc_manager_v2`, and mango 0.16.0 creates no such thing (its
-  `protocols/` holds three `wlr-*` XML files and no dwl IPC; `mmsg`'s JSON
-  socket is a different interface entirely). The tell is one line at startup:
-
-  ```sh
-  journalctl --user -u noctalia | grep 'DWL is not available'
-  ```
-
-  **This corrects `docs/adr/0020`**, which recorded mango support as working and
-  named this exact failure as the thing that support avoided. Nothing to be done
-  short of writing a QML widget against `mmsg watch` — noctalia's plugin system
-  is the other route and it clones git repositories at runtime, which 0020
-  rejected. Tag state is still reachable from waybar in tiling mode.
-
-  **The same dead path empties `CompositorService.windows`**, which is what
-  `MangoService.updateWindows()` assigns, so anything reading the window list
-  is inert too: the launcher's own window switcher (`launcher windows`) opens
-  and lists nothing. That is why `SUPER+W` is `rofi -show window` in every mode
-  including noctalia (`docs/adr/0023`). **The dock is fine** — it reads
-  `ToplevelManager` (wlr-foreign-toplevel) directly, which mango does
-  advertise, so `SUPER+SHIFT+D` works. When adding a noctalia widget or key,
-  check which of the two it reads: `CompositorService` is dead here,
-  `ToplevelManager` is live.
-- **noctalia's session-menu logout is inert**, because `MangoService.logout()`
-  shells out to `mmsg -s -q` — the dwl-era flag form mango answers with
-  `{"error":"unknown command"}` and exit 0. The button is disabled in
-  `settings-pinned.json` rather than left to do nothing (`docs/adr/0023`).
-- ~~**Its power-profile widget does nothing**~~ — **closed 2026-08-17.** It
-  drove `org.freedesktop.UPower.PowerProfiles`, which was unowned here because
-  TLP displaces power-profiles-daemon (`docs/adr/0017`). `power-profiles-tlp`
-  now owns that name and answers it from TLP, so the control-centre button is
-  live in every mode's clients — §9 and `docs/adr/0026`. The battery-panel
-  slider is a separate, off-by-default control; §9 says how to turn it on.
-- **Two more things in noctalia mode are inert, and each looks like a bug.**
-  Measured by running the shell against a scratch config on 2026-08-14, not
-  predicted. Its **blur-behind is silently ignored**: mango does not
-  implement `ext-background-effect-v1`, and the setting stays on in the UI
-  regardless. And it **fetches its version and contributor list from GitHub** on
-  first run and on cache expiry, gated by no setting at all — those calls fail
-  with `Moved Permanently` on 4.7.7 anyway, because `curl -s` does not follow
-  the redirect left by the upstream repo rename. `general.showChangelogOnStartup`
-  and `plugins.notifyUpdates` are off in the seed, but they suppress the popup
-  and the nag, **not** the fetch.
 - **The age key is a single point of failure.** `/var/lib/sops-nix/key.txt` is
   in no repo and no backup; without it `secrets/secrets.yaml` is unreadable.
   See §11.
@@ -1657,16 +1394,15 @@ The ADRs are short and each records the failure that motivated the decision:
 | 0001 | The flake sits at the repo root |
 | 0002 | When a dotfile may be out-of-store |
 | 0003 | Runtime state lives outside the config tree |
-| 0004 | Nix owns GTK theming, not the mode scripts |
+| 0004 | Nix owns GTK theming |
 | 0005 | One owner per daemon |
 | 0006 | Start limits on units that call remote APIs |
 | 0007 | Language servers are declared, not discovered |
 | 0008 | Arch was removed outright |
 | 0009 | Generate config from Nix where a module exists; link files only where one does not |
 | 0010 | `nix flake check` is the gate; lints tuned to fire only on real findings |
-| 0045 | Each mode owns its wallpaper |
 | 0047 | A retired daemon is a call that exits 0 |
 | 0048 | State colour rides the class the script prints |
-| 0049 | A shell is four surfaces, and the bar was the only declared one |
 | 0050 | The weather panel is rofi's, because a dropdown answers no key |
-| 0051 | waybar is the tiling bar again, and wayle is installed but unstarted |
+| 0051 | waybar is the bar again |
+| 0061 | One desktop: noctalia and wayle are removed |

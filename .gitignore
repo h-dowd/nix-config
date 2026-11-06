@@ -10,17 +10,10 @@
 # denylist. Add a new config directory by just adding it.
 
 # --- Generated at runtime, not configuration --------------------------------
-# The mode scripts write this; the rest of home/mango/ is tracked input.
-/dotfiles/mango/config.conf
-
-# `/dotfiles/mango/walker/config.toml` was the second rule here until
-# 2026-08-14. Each autostart.conf symlinked its mode's walker config over that
-# path, so it was a generated symlink AND tracked in git — two owners on one
-# path, and activation failed with "would be clobbered" only after a mode
-# switch had created it, long after the change that caused it. walker is gone
-# and rofi has one config for every mode, so the whole class
-# goes with it. Left as a note because the shape recurs: anything an
-# autostart.conf writes must not also be tracked.
+# Nothing is written into the tracked tree at runtime any more. Anything a
+# script or autostart.conf writes must not also be tracked: two owners on one
+# path fail activation with "would be clobbered", long after the change that
+# caused it.
 
 # Runtime state moved to ~/.local/state/mango on 2026-07-30. Kept as a rule so
 # an old checkout or a stray script cannot quietly reintroduce state into the

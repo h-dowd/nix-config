@@ -1,8 +1,9 @@
 # 0033 — The control centre is a reader, not a second owner
 
-**Status:** Accepted (2026-08-19)
+**Status:** Accepted (2026-08-19). noctalia is removed by [0061](0061-one-desktop-noctalia-and-wayle-removed.md); the
+menu is the only control centre.
 
-Extends [0023](0023-noctalia-owns-its-own-actions.md) (noctalia owns its own
+Extends 0023 (noctalia owns its own
 actions) and follows [0031](0031-the-idle-inhibitor-outlives-the-bar.md), which
 did the same thing for `keep-awake`: `control-center` was one of the three
 remaining `fb=none` rows in `shell.sh`, and this is what gave it a fallback.

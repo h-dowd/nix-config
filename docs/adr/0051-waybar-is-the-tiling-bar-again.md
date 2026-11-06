@@ -1,10 +1,12 @@
 # 0051 — Waybar is the tiling bar again, and wayle is installed but unstarted
 
-**Status:** Accepted (2026-08-27).
+**Status:** Accepted (2026-08-27). The "installed but unstarted" half is
+superseded by [0061](0061-one-desktop-noctalia-and-wayle-removed.md): wayle and
+noctalia are both removed.
 
-Reverses [0045](0045-each-mode-owns-its-wallpaper.md) for the tiling mode, and with
+Reverses 0045 for the tiling mode, and with
 it the clauses of [0047](0047-a-retired-daemon-is-a-call-that-exits-0.md) that
-retired swaync and swayosd. [0020](0020-noctalia-is-a-desktop-mode.md) is
+retired swaync and swayosd. 0020 is
 untouched: noctalia still runs its own shell and its own wallpaper.
 
 This is the **restore** half. wayle is still installed, still generated, and
