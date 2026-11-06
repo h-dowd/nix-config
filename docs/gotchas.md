@@ -239,10 +239,11 @@ closure fails to evaluate on an error that names a Go version and nothing else �
 not the input, not the package. The only identifying detail in the trace is the
 store path of the sops-nix source.
 
-The carry is an alias in the overlay, `buildGo125Module = prev.buildGoModule;`,
-until upstream migrates. It has to be global: `.override { buildGo125Module = …; }`
-on the package throws anyway, because callPackage forces the whole argument set
-before the override is applied.
+The carry was an alias in the overlay, `buildGo125Module = prev.buildGoModule;`.
+It had to be global: `.override { buildGo125Module = …; }` on the package throws
+anyway, because callPackage forces the whole argument set before the override is
+applied. sops-nix has since moved to `buildGoModule`, and the alias went on
+2026-11-06.
 
 **An unused build input can still break the whole closure.** The 2026-10-02
 re-lock moved the default stdenv to GCC 16.2, and `breakpad` 2024.02.16 no longer

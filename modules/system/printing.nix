@@ -12,13 +12,8 @@
       gutenprint
       gutenprintBin
       hplip
-      # Your Brother MFC-L3740CDW. nixpkgs has generic Brother drivers but not
-      # this exact AUR package (brother-mfc-l3740cdw). Options, in order of
-      # preference:
-      #   1. brlaser — open-source, covers most Brother mono/colour lasers
-      #   2. cups-filters' driverless IPP Everywhere (this model supports it,
-      #      so it may Just Work with no driver at all — try that first)
-      #   3. package the AUR driver yourself; see pkgs/README.md
+      # The Brother MFC-L3740CDW prints driverless (IPP Everywhere, via
+      # cups-filters); brlaser is the open-source fallback.
       cups-filters
       brlaser
     ];

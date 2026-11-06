@@ -342,11 +342,7 @@ recompiled from generated SCSS), `paletteKvantum` (an achromatic SVG re-tinted b
 luminance), `paletteCursors`, `themeYazi`, `themeZed`, `lock-backgrounds`,
 `lockscreen`.
 
-**Packages absent from nixpkgs** — `brother-mfc-l3740cdw`, `curseforge`,
-`power-profiles-tlp`.
-
-**Overrides** — `buildGo125Module`, an alias for the builder sops-nix still
-names.
+**Packages absent from nixpkgs** — `power-profiles-tlp`.
 
 | Helper | Purpose |
 |---|---|

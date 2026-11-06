@@ -93,13 +93,6 @@
       "facetimehd-firmware"
     ];
 
-  # Insecure Electron pins nixpkgs will not build without an explicit opt-in.
-  # Name the consumer beside each one, and drop the entry when that package
-  # goes. `nix-store --query --referrers <path>` says who needs it.
-  nixpkgs.config.permittedInsecurePackages = [
-    "electron-41.10.6" # winboat
-  ];
-
   # Optional but recommended for a laptop: build in the background at low
   # priority so a rebuild doesn't make the machine unusable.
   nix.daemonCPUSchedPolicy = "idle";

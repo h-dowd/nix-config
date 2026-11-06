@@ -109,9 +109,7 @@
       (lib.hiPrio clang)
       gfortran
       python313
-      (lib.lowPrio python311) # 3.13 wins the unversioned python3/pydoc3/idle3
       python3Packages.pip
-      lua5_1
       nodejs
       bun
       go
@@ -268,7 +266,4 @@
   #   qrookie-vrp          dropped — use distrobox if any turn out to be missed
   #   nerd-fonts-sf-mono   dropped, unreferenced (and not redistributable)
   #   ttf-phosphor-icons   dropped, unreferenced — was a DankMaterialShell dep
-  #
-  # Packaged locally in ../../pkgs/default.nix:
-  #   brother-mfc-l3740cdw, curseforge
 }

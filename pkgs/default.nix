@@ -76,12 +76,6 @@ let
 in
 
 {
-
-  # nixpkgs removed buildGo125Module on 2026-09-15 (Go 1.25 EOL); sops-nix still
-  # calls it, so `sops.package` throws before the system closure evaluates. Drop
-  # when upstream migrates. docs/gotchas.md -> nixpkgs and NixOS.
-  buildGo125Module = prev.buildGoModule;
-
   # ==========================================================================
   # theme* — the artefacts the palette cannot colour
   # ==========================================================================
@@ -529,61 +523,6 @@ in
           description = "Colloid, compiled against this repo's palette";
         };
       });
-
-  # ==========================================================================
-  # Brother MFC-L3740CDW printer driver
-  # ==========================================================================
-  # Unused — driverless IPP Everywhere works (printing.nix). Kept as fallback.
-  brother-mfc-l3740cdw = prev.stdenv.mkDerivation rec {
-    pname = "brother-mfc-l3740cdw";
-    version = "3.5.1-1";
-
-    src = prev.fetchurl {
-      url = "https://download.brother.com/welcome/dlf105760/mfcl3740cdwpdrv-${version}.i386.deb";
-      hash = "sha256-3weoQ4jJJ9h2fIm0LCyW9yY8dvuGESI26/isdmhzBZY=";
-    };
-
-    nativeBuildInputs = with prev; [
-      dpkg
-      autoPatchelfHook
-      makeWrapper
-    ];
-    buildInputs = with prev; [
-      cups
-      ghostscript
-      perl
-      bash
-    ];
-
-    unpackPhase = "dpkg-deb -x $src .";
-
-    installPhase = ''
-      runHook preInstall
-      mkdir -p $out
-      cp -r opt $out/ 2>/dev/null || true
-      cp -r usr/share $out/share 2>/dev/null || true
-      mkdir -p $out/share/cups/model
-      find $out/opt -name '*.ppd' -exec cp {} $out/share/cups/model/ \; 2>/dev/null || true
-      runHook postInstall
-    '';
-
-    meta.description = "Brother MFC-L3740CDW CUPS driver";
-    meta.platforms = [ "x86_64-linux" ];
-  };
-
-  # ==========================================================================
-  # CurseForge (AppImage)
-  # ==========================================================================
-  curseforge = prev.appimageTools.wrapType2 rec {
-    pname = "curseforge";
-    version = "1.310.1-35445";
-    src = prev.fetchurl {
-      url = "https://curseforge.overwolf.com/electron/linux/CurseForge-${version}.AppImage";
-      hash = "sha256-9GOk9GNPEYvw8adKny2NYd77KN82i7nVtfYCgWxltkU=";
-    };
-    extraPkgs = pkgs: with pkgs; [ libsecret ];
-    meta.description = "CurseForge mod manager";
-  };
 
   # ==========================================================================
   # lock-backgrounds — the swaylock background pool
