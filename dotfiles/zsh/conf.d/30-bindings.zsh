@@ -12,9 +12,11 @@ bindkey -M viins '^a' beginning-of-line
 bindkey -M viins '^e' end-of-line
 
 # Home/End: the Caps layer's ; and ', and ⌘←/→ (keyd). Both cursor-key modes.
+# Shift+Home/End (⌘⇧←/→) move the same way: the shell line has no selection,
+# and unbound, the sequence drops viins into vicmd and runs as commands.
 for m in viins vicmd; do
-  bindkey -M $m '^[[H' beginning-of-line '^[OH' beginning-of-line
-  bindkey -M $m '^[[F' end-of-line '^[OF' end-of-line
+  bindkey -M $m '^[[H' beginning-of-line '^[OH' beginning-of-line '^[[1;2H' beginning-of-line
+  bindkey -M $m '^[[F' end-of-line '^[OF' end-of-line '^[[1;2F' end-of-line
 done
 
 # History substring search keys

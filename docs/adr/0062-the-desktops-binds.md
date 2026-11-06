@@ -73,7 +73,8 @@ Over the alternatives, all of which see the focused app on mango:
 - Each ⌘ bind in mango needs its line in keyd; `checks/static.sh` pairs them.
 - The mapper needs the `keyd` group, which the NixOS module does not create,
   and `CAP_SETGID` in keyd's unit. `docs/gotchas.md` → keyd.
-- ⌘←/→ are Home/End (⌘⇧ selects), so zsh binds Home/End in vi mode. ⌥←/→ by
+- ⌘←/→ are Home/End (⌘⇧ selects), so zsh binds Home/End in vi mode. ⌘⌫
+  deletes to line start: Shift+Home then Backspace, or Ctrl+U in terminals. ⌥←/→ by
   word is not ported.
 - ⌥ combos reach mango before apps: Alt+B/F word motion in readline and
   Alt-keyed app shortcuts are gone on the bound letters.

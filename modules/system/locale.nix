@@ -60,6 +60,8 @@
         # Line start and end, as on the Mac; with ⇧, select to there.
         left = home
         right = end
+        # Delete to line start; terminals take Ctrl+U instead (app.conf).
+        backspace = macro(S-home backspace)
 
         [cmdtab:C-M]
 

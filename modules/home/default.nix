@@ -268,12 +268,23 @@ in
     cmd.n = C-S-n
     cmd.equal = C-S-equal
     cmd.minus = C-S-minus
+    cmd.backspace = C-u
 
     [foot]
     cmd.c = C-S-c
     cmd.v = C-S-v
     cmd.n = C-S-n
     cmd.f = C-S-f
+    cmd.backspace = C-u
+
+    # appid com.mitchellh.ghostty; the mapper matches it lowercased, dots as -.
+    [*ghostty]
+    cmd.c = C-S-c
+    cmd.v = C-S-v
+    cmd.t = C-S-t
+    cmd.w = C-S-w
+    cmd.n = C-S-n
+    cmd.backspace = C-u
   '';
 
   # A file, not ~/.config/keyd: the mapper writes app.lock beside it. It
