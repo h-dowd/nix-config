@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pick the waybar layout (SUPER+/).
+# Pick the waybar layout (⌥/).
 . "$HOME/.config/mango/scripts/lib.sh"
 
 LAYOUTS=("full" "focus" "minimal")

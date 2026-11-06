@@ -437,8 +437,9 @@ lives at `~/src/nix-config` and not at `~/.config` as it did under Arch.
 
 ### Mangowm
 
-A Wayland compositor in the dwl/dwm lineage: tags (workspaces), a master/stack
-layout, keyboard-driven. Config lives in `dotfiles/mango/`: `config.conf`, which
+A Wayland compositor in the dwl/dwm lineage: tags (workspaces), keyboard-driven.
+Every tag is a dwindle tree with manual splits, as on the desktop; `⌥,` cycles to
+monocle. Config lives in `dotfiles/mango/`: `config.conf`, which
 mango reads, `source=`s everything under `universal/` — binds, window rules,
 tags, settings, autostart — and the generated `universal/colors.conf` and
 `cursor.conf`. One look: no animations, no gaps, square corners, a 1px border.
@@ -450,8 +451,8 @@ Two independent switches, both on the `/` key:
 
 | | Options | Bind | State file |
 |---|---|---|---|
-| **Waybar layout** | `full`, `focus`, `minimal` | `SUPER+/` | `~/.local/state/mango/bar-layout` |
-| **Waybar position** | `top`, `bottom` | `SUPER+SHIFT+/` | `~/.local/state/mango/bar-position` |
+| **Waybar layout** | `full`, `focus`, `minimal` | `⌥/` or `⌘,` | `~/.local/state/mango/bar-layout` |
+| **Waybar position** | `top`, `bottom` | `⌥⇧/` | `~/.local/state/mango/bar-position` |
 
 Layout selects which waybar modules are shown. Position moves the bar between
 screen edges. There is one stylesheet, `style-solid.css`.
@@ -495,96 +496,111 @@ disagreed with the writers about the path, silently.
 
 ### Keybinds
 
-`SUPER` is the modifier throughout.
+The desktop's scheme (`henry/dotfiles`), in Mac names. mango binds what a
+remapper sends, not the physical key (`docs/adr/0062`):
 
-**Launching**
+| Mac | Physical key | mango |
+|---|---|---|
+| ⌥ Option — desktop level | Super | `ALT` |
+| ⌘ Cmd — window and system level | Alt | `SUPER+CTRL+ALT`, the "⌘ chord"; ⌘Tab is `SUPER+CTRL` |
+| ⌃ Control | Ctrl | `CTRL`; ⌃⌘ is the chord + `SHIFT` |
 
-| Key | Action |
-|---|---|
-| `SUPER+Return` | foot (terminal) |
-| `SUPER+SHIFT+Return` | kitty |
-| `SUPER+Space` | Launcher — `rofi -show drun` |
-| `SUPER+SHIFT+Space` | Apps **and** open windows in one list (`rofi -show combi`, `combi-modes: drun,window`) |
-| `SUPER+=` | Calculator (`rofi -show calc`, result to the clipboard) |
-| `SUPER+;` | Emoji picker |
-| `SUPER+B` | Zen browser |
-| `SUPER+E` | Thunar |
-| `SUPER+SHIFT+E` | Open a file — `rofi -show recursivebrowser`, recursive from `$HOME`. The same job as Thunar with rofi instead of a GUI, and the only menu here that reaches a file rather than a system reading |
-| `SUPER+W` | Window switcher (`rofi -show window`) — a picker, unlike `SUPER+Tab` |
-| `SUPER+V` | Clipboard history |
-| `SUPER+P` | Bitwarden |
-| `SUPER+CTRL+N` / `+B` | Network / Bluetooth |
-| `SUPER+CTRL+V` | VPN menu |
-| `SUPER+F1` | rofi's own keybindings (`rofi -show keys`). Rofi's, not mango's — for mango's, read `dotfiles/mango/universal/bind*.conf` |
-| `SUPER+CTRL+W` | Weather panel. **Enter** opens the forecast page, **Ctrl+Enter** refetches and redraws (`docs/adr/0050`) |
+keyd does the remapping (`modules/system/locale.nix`). ⌘ is Ctrl for apps, so
+⌘C copies; in kitty and foot, `keyd-application-mapper` turns ⌘C, ⌘V and their
+other shortcuts into Ctrl+Shift (`~/.config/keyd/app.conf`, generated in
+`modules/home/default.nix`). ⌃ stays Ctrl, so ⌃C interrupts. Caps is Esc tapped
+and the nav layer held; Right Alt is the typst layer.
 
-Most of these go through `scripts/menus/shell.sh`, the one action table the
-binds call; `checks/static.sh` asserts every row is bound and every bound action
-is a row.
-
-**Windows**
+**Cmd level**
 
 | Key | Action |
 |---|---|
-| `SUPER+Q` | Close window |
-| `SUPER+H/J/K/L` | Focus left/down/up/right |
-| `SUPER+SHIFT+H/J/K/L` | Swap window in that direction |
-| `SUPER+Tab` / `SUPER+SHIFT+Tab` | Next / previous in stack |
-| `ALT+Tab` | Overview |
-| `SUPER+F` / `SUPER+SHIFT+F` | Fullscreen / fake fullscreen |
-| `SUPER+A` | Maximise to screen |
-| `SUPER+SHIFT+O` | Toggle floating |
-| `SUPER+I` / `SUPER+SHIFT+I` | Minimise / restore the last one on this tag |
-| `SUPER+CTRL+I` | Pick which minimised window comes back (ADR 0052). Same menu as clicking the bar's minimised count |
-| `SUPER+G` | Toggle global (sticky) |
-| `ALT+Z` | Scratchpad |
-| `SUPER+[` / `SUPER+]` | Spotify / Equibop scratchpad |
-| `CTRL+SHIFT+H/J/K/L` | Move a floating window |
-| `CTRL+ALT+H/J/K/L` | Resize a floating window |
+| `⌘Space` | Launcher — `rofi -show drun` |
+| `⌘Tab` / `⌘⇧Tab` | Window switcher with thumbnails; selects when ⌘ is released |
+| `⌘Q` / `⌥⌘Esc` | Close window / force-kill it |
+| `⌘,` | Waybar layout picker |
+| `⌘⇧V` | Clipboard history |
+| `⌘⇧3` / `⌘⇧4` | Full screen to clipboard / region screenshot |
+| `⌃⌘Q` | Lock screen |
+| `⌘←` / `⌘→` | Line start / end (Home/End from keyd); with `⇧`, select to there |
+| `⌃⌘\` / `⌃⌘Backspace` | Notification history / clear all — swaync's own panel. `swaync-client` against an unstarted daemon exits 0 (`docs/adr/0047`) |
+
+**Tree, focus and layout**
+
+| Key | Action |
+|---|---|
+| `⌥V` / `⌥⇧V` | Next window goes right / below |
+| `⌃⌥V` | Flip the current container's split |
+| `⌥H/J/K/L` | Focus left/down/up/right |
+| `⌥⇧H/J/K/L` | Move the window beside its neighbour in that direction |
+| `` ⌥` `` | Last focused window |
+| `⌥,` | Dwindle ↔ monocle |
+| `⌥A` / `⌥F` / `⌥⇧F` | Maximise / fullscreen / fake fullscreen |
+| `⌥⇧Space` | Toggle floating |
+| `⌥O` | Keep above everything (overlay) |
+| `⌥G` | Toggle global (sticky) |
+| `⌥I` / `⌥⇧I` | Minimise / restore the last one on this tag |
+| `⌃⌥I` | Pick which minimised window comes back (ADR 0052). Same menu as clicking the bar's minimised count |
+| `⌥R` | Resize mode: `H/J/K/L` by 50px, with `⇧` by 200px; `Esc`, `Return` or `⌥R` leaves |
+| `⌥⇧R` | Reload mango config |
+| `⌥Q` | Close window |
+| `⌃⌥⇧M` | Quit the compositor |
+| `⌥⇧X` / `⌥⇧Z` | More / fewer gaps |
+| `⌥` + drag / right-drag / middle-click | Move / resize / maximise |
 
 **Workspaces (tags)**
 
 | Key | Action |
 |---|---|
-| `SUPER+1…7` | Go to tag. Not 8 or 9 — they collide with `SUPER+[` / `SUPER+]` on the gb layout (`docs/gotchas.md` → Desktop); reach those tags with `SUPER+ALT+h/l` or move a window there with `SUPER+SHIFT+8/9` |
-| `SUPER+SHIFT+1…9` | Move window to tag and follow |
-| `SUPER+CTRL+SHIFT+1…9` | Move window to tag silently |
-| `SUPER+CTRL+H` / `+L` | Previous / next tag |
-| `SUPER+ALT+H` / `+L` | Move window to previous / next tag |
+| `⌥1…9` | Go to tag |
+| `⌥⇧1…9` | Move window to tag and follow |
+| `⌃⌥⇧1…9` | Move window to tag and stay |
+| `⌥Tab` | Back to the previous tag |
+| `⌥⇧Tab` | Overview |
+| `⌃⌥H` / `⌃⌥L` | Previous / next tag |
+| `⌥⌘H` / `⌥⌘L` | Move window to previous / next tag |
+| `⌃⌥,` / `⌃⌥.` | Focus monitor left / right; with `⇧`, move the window there |
+| `⌥Z` | Scratchpad |
+| `⌥[` / `⌥]` | Spotify / Equibop scratchpad. Bound by keycode, so `⌥8`/`⌥9` keep their tags (`docs/gotchas.md` → Desktop) |
 
-Tags 7 and 9 default to `monocle`; the rest are `tile` (`universal/tag.conf`).
-
-**Layout**
-
-| Key | Action |
-|---|---|
-| `SUPER+N` | Cycle layout |
-| `SUPER+CTRL+Return` | Zoom (promote to master) |
-| `SUPER+CTRL+K` / `+J` | More / fewer master windows |
-| `SUPER+CTRL+,` / `+.` | Shrink / grow master area |
-| `SUPER+SHIFT+X` / `+Z` | More / fewer gaps |
-| `SUPER+SHIFT+R` | Toggle gaps |
-| `SUPER+X` | Cycle proportion preset |
-
-**System**
+**Apps and menus**
 
 | Key | Action |
 |---|---|
-| `SUPER+R` | Reload mango config |
-| `SUPER+/` | Waybar layout picker |
-| `SUPER+SHIFT+/` | Waybar top/bottom |
-| `SUPER+SHIFT+N` | Do not disturb — `swaync-client -d -sw`. `swaync-client` against an unstarted daemon exits 0 (`docs/adr/0047`) |
-| `SUPER+SHIFT+S` / `SUPER+Delete` | Lock screen |
-| `SUPER+Escape` | Power menu |
-| `SUPER+SHIFT+P` | Cycle TLP power profile. Not ACPI: `platform_profile` is a placebo here (§9, `docs/adr/0017`) |
-| `SUPER+SHIFT+A` | Keep awake — `wlinhibit.service` holds a Wayland idle inhibitor, the only thing that stops swayidle's ladder from inside the session (§9, `docs/adr/0031`). The bar glyph follows within 2 s; the key raises no notification, so that poll **is** the feedback |
-| `SUPER+C` | Control centre — thirteen rows in one list (network, bluetooth, VPN, volume, microphone, night light, keep awake, power profile, phone, weather, do-not-disturb, notifications, bar), each showing the state it is actually in. It is a **reader**: nothing in it changes anything itself, and five rows take their icon and their state from the waybar module that owns the fact (`docs/adr/0033`, `docs/adr/0038`). Weather is the one row with two verbs, and they are two keys: **Enter** opens the forecast and closes the panel, **Ctrl+Enter** refetches and stays (`docs/adr/0044`). On any other row Ctrl+Enter just re-renders |
+| `⌥Return` / `⌥⇧Return` | kitty / foot |
+| `⌥B` | Zen browser |
+| `⌥E` | Thunar |
+| `⌥⇧E` | Open a file — `rofi -show recursivebrowser`, recursive from `$HOME` |
+| `⌥P` | Bitwarden (`rofi-rbw`) |
+| `⌥Space` | Apps **and** open windows in one list (`rofi -show combi`, `combi-modes: drun,window`) |
+| `⌥W` | Window picker (`rofi -show window`) |
+| `⌥=` | Calculator (`rofi -show calc`, result to the clipboard) |
+| `⌥;` | Emoji picker |
+| `⌥F1` | rofi's own keybindings (`rofi -show keys`); mango's are in `dotfiles/mango/universal/bind*.conf` |
+
+Most of these go through `scripts/menus/shell.sh`, the one action table the
+binds call; `checks/static.sh` asserts every row is bound and every bound action
+is a row.
+
+**Panels and system**
+
+| Key | Action |
+|---|---|
+| `⌥C` | Control centre — thirteen rows in one list (network, bluetooth, VPN, volume, microphone, night light, keep awake, power profile, phone, weather, do-not-disturb, notifications, bar), each showing the state it is actually in. It is a **reader**: nothing in it changes anything itself, and five rows take their icon and their state from the waybar module that owns the fact (`docs/adr/0033`, `docs/adr/0038`). Weather is the one row with two verbs, and they are two keys: **Enter** opens the forecast and closes the panel, **Ctrl+Enter** refetches and stays (`docs/adr/0044`). On any other row Ctrl+Enter just re-renders |
 | bar button, every layout | The same control centre — `custom/control-center` in `waybar.nix`, `on-click` running `shell.sh control-center` |
+| `⌥D` | Calendar |
+| `⌃⌥N` / `⌃⌥B` / `⌃⌥T` | Network / Bluetooth / VPN |
+| `⌃⌥W` | Weather panel. **Enter** opens the forecast page, **Ctrl+Enter** refetches and redraws (`docs/adr/0050`) |
+| `⌥Esc` | Power menu |
+| `⌥/` | Waybar layout picker (also `⌘,`) |
+| `⌥⇧/` | Waybar top/bottom |
+| `⌥⇧N` | Do not disturb — `swaync-client -d -sw` |
+| `⌥⇧A` | Keep awake — `wlinhibit.service` holds a Wayland idle inhibitor, the only thing that stops swayidle's ladder from inside the session (§9, `docs/adr/0031`). The bar glyph follows within 2 s; the key raises no notification, so that poll **is** the feedback |
+| `⌥⇧P` | Cycle TLP power profile. Not ACPI: `platform_profile` is a placebo here (§9, `docs/adr/0017`) |
 | `Print` / `CTRL+Print` | Region screenshot / full screen to clipboard |
-| `CTRL+ALT+\` / `+Backspace` | Notification history / clear all — `swaync-client -t` and `-C -sw`, swaync's own panel. `swaync-client` has count, dnd and toggle and no list to build a rofi one from |
-| `SUPER+SHIFT+CTRL+M` | Quit the compositor |
-| Media & brightness keys | Volume, playback, backlight (via wpctl / playerctl / brightnessctl) |
+| Media & brightness keys | Volume, playback, backlight (via wpctl / playerctl / brightnessctl). `⌥` + scroll is volume, `⌃⌥` + scroll is backlight |
 | `XF86AudioMicMute` | Mic mute. Its state is on the bar (waybar's `pulseaudio`) and in the control centre; the ThinkPad LED is no longer the only place it shows |
+| 3-finger swipe | Left/right focus, up overview, down float. 4-finger left/right changes tag |
 | Power button | Tap hibernates, hold powers off — logind, not a mango bind (§9) |
 
 ### Waybar
@@ -602,7 +618,7 @@ The first module of each group after the first is emitted as `name#sep`, which
 waybar renders with the style class `sep` and the sheet's one `.sep` rule draws
 the separator — so grouping is declared beside the order rather than inferred
 from fifteen module-keyed borders in the CSS. A layout may drop a module but
-never reposition one, so `SUPER+/` moves nothing two layouts share;
+never reposition one, so `⌥/` moves nothing two layouts share;
 `checks/static.sh` asserts that, the `.sep` rule's existence, and that no
 module-keyed border comes back. `docs/adr/0042`.
 
@@ -659,7 +675,7 @@ is missing from the bar, **run its script by hand first**:
 > `docs/adr/0038`.
 
 > **`menus/calendar.sh` is the calendar**, on the clock's left click and on
-> `SUPER+D`. A month grid with ISO week numbers, today bold and
+> `⌥D`. A month grid with ISO week numbers, today bold and
 > underlined, the current week preselected. `Ctrl+Enter` and `Shift+Enter` page
 > the month; `Enter` returns to today, then closes. It replaced `{calendar}` in
 > the clock's tooltip, which could not be navigated or kept open. The grid is
@@ -717,8 +733,8 @@ is missing from the bar, **run its script by hand first**:
 
 | Piece | Role |
 |---|---|
-| **rofi** | The launcher (`SUPER+Space`, `-show drun` — `docs/adr/0043`) and every structured menu — bluetooth, clipboard, volume, network, VPN, the layout picker — plus `calc` and `emoji` as plugin modes. No daemon. Config *and* layout in `dotfiles/rofi/config.rasi`; colours in the generated `colors.rasi`. Grepping for `rofi` also substring-matches `power-profile` |
-| **rofi-rbw** | Bitwarden (`SUPER+P`). Not a rofi plugin — a front-end over `rbw` |
+| **rofi** | The launcher (`⌘Space`, `-show drun` — `docs/adr/0043`) and every structured menu — bluetooth, clipboard, volume, network, VPN, the layout picker — plus `calc` and `emoji` as plugin modes. No daemon. Config *and* layout in `dotfiles/rofi/config.rasi`; colours in the generated `colors.rasi`. Grepping for `rofi` also substring-matches `power-profile` |
+| **rofi-rbw** | Bitwarden (`⌥P`). Not a rofi plugin — a front-end over `rbw` |
 | **swaync** | The notification daemon (`docs/adr/0051`), started by `universal/autostart.conf`. Its unit stays masked so that autostart owns the lifecycle — which also means `swaync-client` only works while swaync itself holds `org.erikreider.swaync.cc`. See `docs/gotchas.md` → Waybar |
 | **awww** | Wallpaper daemon (the swww fork; the binary is `awww`) |
 | **wlsunset** | Night light, owned by a systemd user unit |
@@ -742,7 +758,7 @@ Aliases worth knowing: `cat`→`bat`, `ls`/`ll`/`la`→`eza`, `lf`→`yazi`,
 `zed`→`zeditor`, `z` for zoxide jumping. In `~` only, bare `ls` hides a fixed
 list of clutter directories; `ll`/`la` are the unfiltered escape hatches.
 
-**Terminals:** foot (default, `SUPER+Return`), kitty, ghostty. All on the selected scheme,
+**Terminals:** kitty (`⌥Return`), foot (`⌥⇧Return`), ghostty. All on the selected scheme,
 Hack Nerd Font Mono 11 — kitty additionally takes bold and italic from
 0xProto Nerd Font Mono (bold-italic stays Hack; 0xProto ships none).
 `checks/static.sh` asserts every family named here actually resolves.
@@ -781,7 +797,7 @@ Three things look like faults and are not.
 
 ### Power modes
 
-Three TLP profiles. `SUPER+SHIFT+p` and a left-click on the waybar
+Three TLP profiles. `⌥⇧P` and a left-click on the waybar
 leaf/bolt/adjust glyph toggle **balanced ↔ performance** — the two everyday
 modes. **Fanless is right-click only**, and left-clicking out of it lands in
 balanced. It is kept off the left-click path deliberately: a 1.1 GHz cap with
@@ -970,7 +986,7 @@ interface: a game, a call in an app that publishes none.
 
 #### Holding the ladder off — keep awake
 
-**`SUPER+SHIFT+A`, or click the bar's `custom/idle-inhibitor`** (`full` and
+**`⌥⇧A`, or click the bar's `custom/idle-inhibitor`** (`full` and
 `focus` layouts, between night mode and the power profile). 󰒲 means the ladder
 is live; 󰒳 in yellow means nothing dims, locks or sleeps, and closing the lid
 does nothing.
@@ -1059,7 +1075,7 @@ texture, with a different pattern on every lock** (`docs/adr/0018`).
 
 **Every lock path calls `lockscreen`, not `swaylock`** — swayidle's
 `before-sleep`/`lock` and its idle timeout, wlogout, `power-menu.sh`, and the
-`SUPER+Delete` / `SUPER+SHIFT+s` binds. It is not named `swaylock` because that
+`⌃⌘Q` bind. It is not named `swaylock` because that
 would shadow swaylock-effects in PATH, the same trap `package = null` exists
 for. `checks/static.sh` asserts swayidle reaches it and that its pool is
 non-empty — an empty pool is invisible, since the fallback is the old flat
@@ -1235,6 +1251,7 @@ What is running, and who owns it.
 | `wifi-resume` | The resume fix above |
 | `tor` | Client mode, enabled in `networking.nix` |
 | `podman`, `libvirtd` | Containers and VMs |
+| `keyd` | ⌥/⌘ positions, Caps nav/Esc, typst layer, for every keyboard (`docs/adr/0062`). Socket group `keyd`, for the mapper |
 
 **User units**
 
@@ -1244,7 +1261,8 @@ What is running, and who owns it.
 | `wlsunset` | Night light — reads its temperature from `~/.local/state/mango/night-temp`. `Restart=always` |
 | `micmute-led` | Syncs the mic-mute LED with PipeWire. **The only place `pactl` exists** — it comes from this unit's `path`, not `systemPackages`. No longer the sole mic indicator: waybar's `pulseaudio` carries `{format_source}` since 2026-08-19, so this unit failing is now visible rather than silent (`docs/gotchas.md` → Waybar) |
 | `nextcloud-client` | Cloud sync — credentials in gnome-keyring's `Default` collection, config at `~/.config/Nextcloud/`. If it asks for a login, check the unit's `XDG_CONFIG_HOME` before anything else (`docs/gotchas.md` → Session environment) |
-| `cliphist` (+ `cliphist-images`) | Clipboard history behind `SUPER+V` — read by rofi |
+| `cliphist` (+ `cliphist-images`) | Clipboard history behind `⌘⇧V` — read by rofi |
+| `keyd-application-mapper` | Applies `~/.config/keyd/app.conf` per focused app: terminals take ⌘C/⌘V on Ctrl+Shift. Restarted by a rebuild that changes the file. `-v` logs each focused appid to its journal |
 | `mango-session.target` | A marker other units can hang off; started from `autostart.conf` |
 | `swaync.service` | **Masked** — autostart owns swaync instead |
 
@@ -1346,7 +1364,7 @@ Things that are true today and worth knowing. *(Reviewed 2026-08-20.)*
 
 - **Nothing here can hold off the idle ladder except a Wayland idle inhibitor.**
   `systemd-inhibit --what=idle` does not reach swayidle, so unattended work on
-  battery meets the 30-minute suspend. `SUPER+SHIFT+A` is the in-session answer
+  battery meets the 30-minute suspend. `⌥⇧A` is the in-session answer
   and it now survives a waybar restart (docs/adr/0031); `systemctl --user stop
   swayidle` is still the one nothing in the desktop can undo silently. See §9.
 - **The spurious s2idle wake source is still unidentified**, and it is what keeps

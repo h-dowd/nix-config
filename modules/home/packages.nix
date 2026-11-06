@@ -188,7 +188,7 @@
       teams-for-linux
       bitwarden-desktop
       _1password-gui # attr names cannot start with a digit; nixpkgs prefixes `_`
-      rbw # rofi-rbw (SUPER+p) is a front-end over this; without it the key opens an empty list
+      rbw # rofi-rbw (⌥P) is a front-end over this; without it the key opens an empty list
       pinentry-qt # rbw's config.json asks for "pinentry", which every variant provides
       warpinator
       kdePackages.kdeconnect-kde # not valent — the mango configs call kdeconnect-cli
@@ -211,7 +211,6 @@
       sl
       wineWow64Packages.stable # wineWowPackages is deprecated upstream
       winetricks
-      sidequest
       winboat
       # Bedrock also needs the mcpelauncher-updates mod dropped in
       # ~/.local/share/mcpelauncher/mods/ — the packaged libc shim has no

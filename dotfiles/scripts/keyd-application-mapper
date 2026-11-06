@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-sg keyd "keyd-application-mapper -v"

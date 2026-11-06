@@ -234,7 +234,7 @@ in
   # widget, never from a key. docs/adr/0031.
   #
   # NO [Install]. Nothing starts this at login: it is switched on by
-  # SUPER+SHIFT+A or a click on the bar, via scripts/system/idle-inhibit.sh,
+  # ⌥⇧A or a click on the bar, via scripts/system/idle-inhibit.sh,
   # and an inhibitor that came up on its own would be the failure it exists to
   # prevent. `PartOf` still ends it with the session.
   systemd.user.services.wlinhibit = {
@@ -254,6 +254,50 @@ in
       Restart = "on-failure";
       RestartSec = 1;
     };
+  };
+
+  # ⌘ is Ctrl for apps (modules/system/locale.nix); terminals take copy, paste
+  # and their own shortcuts on Ctrl+Shift instead. Bindings are `keyd bind`
+  # expressions, applied on focus by keyd-application-mapper. docs/adr/0062
+  xdg.configFile."keyd/app.conf".text = ''
+    [kitty]
+    cmd.c = C-S-c
+    cmd.v = C-S-v
+    cmd.t = C-S-t
+    cmd.w = C-S-w
+    cmd.n = C-S-n
+    cmd.equal = C-S-equal
+    cmd.minus = C-S-minus
+
+    [foot]
+    cmd.c = C-S-c
+    cmd.v = C-S-v
+    cmd.n = C-S-n
+    cmd.f = C-S-f
+  '';
+
+  # A file, not ~/.config/keyd: the mapper writes app.lock beside it. It
+  # reloads on app.conf's mtime, which a store path never changes, hence the
+  # restart trigger.
+  systemd.user.services.keyd-application-mapper = {
+    Unit = {
+      Description = "Per-application keyd bindings";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
+      X-Restart-Triggers = [ config.xdg.configFile."keyd/app.conf".source ];
+    };
+    Service = {
+      ExecStart = "${pkgs.keyd}/bin/keyd-application-mapper -v";
+      # Unbuffered, or `-v`'s appid log never reaches the journal.
+      Environment = [
+        "KEYD_BIN=${pkgs.keyd}/bin/keyd"
+        "PYTHONUNBUFFERED=1"
+      ];
+      Restart = "on-failure";
+      RestartSec = 2;
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
   };
 
   services.nextcloud-client = {

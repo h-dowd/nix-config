@@ -405,6 +405,33 @@ erroring. `checks/static.sh` asserts the declaration exists.
 The tell is never the filesystem — the file is present and linked either way.
 Ask the program: `rofi -no-config -h` must list the expected modes.
 
+### keyd
+
+**keyd skips a bad line with a WARNING in its journal and runs the rest.** Five
+lines of the Arch-era config were dead that way: three `[x:main]` headers (`main`
+is not a layer type), `[leftalt+shift]` (a key, not a layer) and
+`leftshift + [` (spaces). `checks/static.sh` runs `keyd check` on the generated
+config, and on `app.conf`'s bindings rewritten as sections of it.
+
+**The application mapper needs group `keyd`, which nothing created.** keyd gives
+its socket to that group when it exists. NixOS's module creates none, and its
+unit's `CapabilityBoundingSet` lacks `CAP_SETGID`, so `/run/keyd.socket` stayed
+`root:root`, the journal said `failed to set effective group to "keyd"`, and the
+mapper (then `sg keyd …`, failing on the missing group) never connected.
+`"keyd"` in `extraGroups` was dropped without a word. `locale.nix` creates the
+group and adds the capability; `id` shows it after logging in again.
+
+**`swap(layer, macro)` is `swapm` in 2.6.0.** The bundled man page shows the
+two-argument `swap`; 2.6.0 warns `swap requires 1 argument` and skips the line.
+
+**The mapper reloads `app.conf` when its mtime changes, and a store path's is
+always 1.** A rebuild alone changes nothing; the unit's `X-Restart-Triggers`
+restarts it.
+
+**keyd remaps below the session**, so the TTY, the greeter and games get the
+⌥/⌘ positions too. Console keys that need Alt (SysRq, VT switching) move to
+physical Super.
+
 ### mango
 
 **`mmsg` takes verbs, not flags:** `get`, `dispatch`, `watch`. Anything else
@@ -470,9 +497,9 @@ found the file, fell back to its default, and the "already there" guard exited
 See `docs/adr/0003`.
 
 **`bind=` matches on keycode; `bindsym=` matches on keysym.** So
-`SUPER+SHIFT,slash` is correct and not dead: shift turns `/` into `question`, but
+`ALT+SHIFT,slash` is correct and not dead: shift turns `/` into `question`, but
 `bind=` entries resolve to keycodes at parse time and compare without consulting
-the shift level. Same for `SUPER+SHIFT,1..9`. **Switching a shifted bind to
+the shift level. Same for `ALT+SHIFT,1..9`. **Switching a shifted bind to
 `bindsym=`, spell out the shifted keysym** — otherwise it never fires, with
 nothing in any log.
 
@@ -757,7 +784,7 @@ keeps the whole dot-tree out: `$HOME` holds 1,030,333 entries and the mode walks
 190,640 of them, because `.cache` (92,914) and `.local/share/Steam` (186,560)
 are pruned by it. **Overriding `filter-regex` without carrying that alternation
 forward turns a 0.33s walk into the other 840,000 entries**, and nothing reports
-it — the list just keeps filling. `SUPER+SHIFT+E` extends it rather than
+it — the list just keeps filling. `⌥⇧E` extends it rather than
 replacing it.
 
 Its two siblings are not the same lever: `directory` sets the root (default
@@ -1032,9 +1059,8 @@ word. `checks/static.sh` fails on any mango stderr, which is why the bump
 surfaced it — a conflict warning is the same class of defect as the `[ERROR]`
 that check was written for.
 
-`SUPER,8` and `SUPER,9` are gone rather than the brackets. Modifiers are part of
-the comparison, so `SUPER+SHIFT,8` and `SUPER+CTRL+SHIFT,8` are unaffected and
-both tags stay reachable. Verify a candidate key before using it: `mango -p` in a
+The brackets are bound by keycode, `ALT,code:34` and `ALT,code:35`, so `⌥8` and
+`⌥9` keep their tags. (Until docs/adr/0062 the tag binds lost instead.) Verify a candidate key before using it: `mango -p` in a
 scratch `$HOME` with the real `xkb_rules_layout`, which is what found that
 `SUPER+ALT,bracketleft` and `SUPER,minus` are clean while `SUPER,braceleft` is
 not.
@@ -1161,7 +1187,7 @@ minimized window **on the current tag**. Verified on 2026-08-27 both ways: a
 window minimized and restored on one tag round-trips exactly (`is_minimized`
 false again, `tags` back to the active tag); a window minimized on tag 1 stays
 minimized while tag 2 is active — and the dispatch reports success in both
-cases. `SUPER+SHIFT+I` has the same behaviour, because it is the same verb.
+cases. `⌥⇧I` has the same behaviour, because it is the same verb.
 
 > **Minimizing clears the client's tag list to `[]`.** So `is_minimized` is the
 > only way to find these windows, and there is no way to tell from the IPC which
@@ -1353,13 +1379,13 @@ survived two rounds.
 
 **The idle inhibitor used to be process state, and a waybar restart released
 it.** Fixed on 2026-08-18 (docs/adr/0031): it is `wlinhibit.service` now and the
-bar module only reports it, so `waybar-reload`, a layout switch and `SUPER+/`
+bar module only reports it, so `waybar-reload`, a layout switch and `⌥/`
 all leave it held. Before that the toggle was a static bool on a
 surface that died with the bar — and the glyph went back to `󰒲` at the same
 instant, so the bar was never visibly *wrong*, it just stopped being what had
 been set. `minimal` still does not carry the module; it no longer needs to,
 because
-`SUPER+SHIFT+A` reaches it in every layout.
+`⌥⇧A` reaches it in every layout.
 
 One thing that remains true about it:
 
@@ -2717,6 +2743,5 @@ were therefore always broken.
 | `micmute-led` | syncs the ThinkPad mic-mute LED with PipeWire. Runs as the user service in `audio.nix`, which is the **only** place `pactl` exists (from `pkgs.pulseaudio`, deliberately not in `systemPackages`) — so running it from a shell fails with `pactl: command not found` |
 | `toggle_lid_action` | **inert on NixOS**, and fails in a way that looks like a permissions problem: it edits `/etc/systemd/logind.conf` in place, which is a symlink into a read-only store path, so it exits 1 with `Permission denied` and `sudo` does not help. Reading still works. The setting is declarative in `power.nix`. Kept only to answer "what is it set to" |
 | `clean_tmp` | `cleantmp` alias |
-| `keyd-application-mapper` | per-application keyd layers |
 | `pdf_to_a4` | Ghostscript A4 conversion, aspect preserved |
 | `texpdf` | pdflatex + aux cleanup |

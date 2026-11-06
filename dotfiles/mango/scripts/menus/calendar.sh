@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The calendar, in rofi. Left-click on the clock, or SUPER+d.
+# The calendar, in rofi. Left-click on the clock, or ⌥D.
 #
 # Replaces reading `{calendar}` out of the clock's tooltip: a tooltip cannot be
 # navigated, cannot be kept open and appears wherever the pointer happens to be.

@@ -368,17 +368,23 @@ fi
 # nothing reads it — so the second bind looks installed and never fires. Built
 # from the `source=` lines of config.conf, which is exactly the set mango
 # parses. Keys are lowercased first: the dispatcher compares with
-# xkb_keysym_to_lower(), so `SUPER,O` and `SUPER,o` are one key, not two.
+# xkb_keysym_to_lower(), so `ALT,O` and `ALT,o` are one key, not two.
 #
 # The floor is on binds seen: `srcs` matches the literal `source=./`, so a
 # change of spelling would empty it and the scan would pass over nothing.
+# Each bind is keyed by the `keymode=` in force, which carries across sourced
+# files as mango's does: resize mode rebinds `ALT,r` on purpose.
 conf="$MANGO/config.conf"
 mapfile -t srcs < <(sed -n 's|^source=\./||p' "$conf" 2>/dev/null)
 mapfile -t binds < <(
 	for s in "${srcs[@]}"; do
-		[[ -f "$MANGO/$s" ]] && grep -h '^bind=' "$MANGO/$s"
+		[[ -f "$MANGO/$s" ]] && cat "$MANGO/$s"
 	done
-	grep -h '^bind=' "$conf"
+	cat "$conf"
+)
+mapfile -t binds < <(
+	printf '%s\n' "${binds[@]}" |
+		awk -v m=default '/^keymode=/ { m = substr($0, 9) } /^bind=/ { print m "|" $0 }'
 )
 dups=$(
 	printf '%s\n' "${binds[@]}" |
@@ -495,7 +501,7 @@ if [[ -f $CC ]]; then
 		# And the key it binds has to be free. rofi ships `Control+Return` as
 		# `kb-accept-custom`, and a key with two actions is an error dialog where
 		# the panel should be — so binding it without `-kb-accept-custom ""` in
-		# the same call breaks `SUPER+C` outright. Checked as a pair, because
+		# the same call breaks `⌥C` outright. Checked as a pair, because
 		# either half alone is wrong: unsetting a default nothing rebinds gives up
 		# a key for free.
 		#
@@ -775,7 +781,7 @@ if [[ -f $WEATHER_SH ]]; then
 	# 7. THE BROWSER `open` REACHES. xdg-open resolves this through
 	#    mimeapps.list and falls back to whatever else claims the scheme when
 	#    the .desktop it names is not installed — silently, which is how
-	#    SUPER+b opened chromium for a month (universal/bind.conf).
+	#    ⌥B's key opened chromium for a month (universal/bind-shared.conf).
 	whandler=$(
 		sed -n 's|^x-scheme-handler/https=||p' "$GEN_CFG/mimeapps.list" 2>/dev/null |
 			tr ';' '\n' | sed '/^$/d' | head -1
@@ -1079,6 +1085,77 @@ else
 			"$(printf '%s' "$err" | sed 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
 	else
 		ok "mango/config.conf parses with no diagnostics"
+	fi
+fi
+
+# keyd skips a bad line with a WARNING in its journal and runs the rest; five
+# had gone unnoticed that way. The binary is the unit's, as for mango above.
+KEYD_BIN=$(sed -n 's/^ExecStart=\([^ ]*\).*/\1/p' "$SYS/etc/systemd/system/keyd.service" 2>/dev/null)
+KEYD_CONF="$SYS/etc/keyd/default.conf"
+if [[ ! -x $KEYD_BIN || ! -f $KEYD_CONF ]]; then
+	bad "no keyd unit or config in the system — no ⌥/⌘ layer, and mango's ⌘ binds are unreachable" "$KEYD_CONF"
+elif ! err=$("$KEYD_BIN" check "$KEYD_CONF" 2>&1) || grep -q WARNING <<<"$err"; then
+	bad "keyd rejects lines of its config and will run without them" "$(grep WARNING <<<"$err" | tr '\n' ' ')"
+else
+	ok "keyd/default.conf passes keyd check"
+fi
+
+# app.conf's `layer.key = action` lines reach keyd through `keyd bind`, with
+# its output discarded. Checked by rewriting each as a section of the real
+# config, so a bad one fails here instead of doing nothing in one terminal.
+APPCONF="$GEN_CFG/keyd/app.conf"
+if [[ -x $KEYD_BIN && -f $KEYD_CONF && -f $APPCONF ]]; then
+	KTMP=$(mktemp)
+	appbinds=$(grep -cE '^[a-z]+\.[^ ]+ = ' "$APPCONF")
+	{
+		cat "$KEYD_CONF"
+		sed -nE 's/^([a-z]+)\.([^ ]+) = (.*)/[\1]\n\2 = \3/p' "$APPCONF"
+	} >"$KTMP"
+	# The rewrite would create a misspelt layer rather than reject it.
+	nolayer=$(
+		sed -nE 's/^([a-z]+)\..*/\1/p' "$APPCONF" | sort -u |
+			while read -r l; do grep -qE "^\\[${l}[]:]" "$KEYD_CONF" || echo "$l"; done
+	)
+	if [[ $appbinds -lt 8 ]]; then
+		bad "only $appbinds bindings read from keyd/app.conf — the scan is broken, not the repo"
+	elif [[ -n $nolayer ]]; then
+		bad "keyd/app.conf binds into a layer keyd/default.conf does not define" "$nolayer"
+	elif ! err=$("$KEYD_BIN" check "$KTMP" 2>&1) || grep -q WARNING <<<"$err"; then
+		bad "a keyd/app.conf binding is invalid; the mapper applies it in silence" "$(grep WARNING <<<"$err" | tr '\n' ' ')"
+	else
+		ok "all $appbinds keyd/app.conf bindings parse"
+	fi
+	rm -f "$KTMP"
+else
+	bad "no keyd/app.conf in the generation — terminals get ⌘C as Ctrl+C" "$APPCONF"
+fi
+
+# A ⌘ bind is mango's `SUPER+CTRL[+ALT][+SHIFT]`, which no physical key sends:
+# keyd's cmd layers must produce it, or the bind is unreachable. docs/adr/0062
+if [[ -f $KEYD_CONF ]]; then
+	keydout=$(sed -nE 's/^[^=]+= *(swapm\([a-z]+, *)?([^)]*)\)?$/\2/p' "$KEYD_CONF")
+	chorderr="" nchord=0
+	while IFS=, read -r mods key _; do
+		mods=${mods#bind=} out=""
+		[[ $mods == *CTRL* ]] && out+=C-
+		[[ $mods == *SUPER* ]] && out+=M-
+		[[ $mods == *ALT* ]] && out+=A-
+		[[ $mods == *SHIFT* ]] && out+=S-
+		case $key in
+		comma) key=, ;;
+		Escape) key=esc ;;
+		backslash) key="\\" ;;
+		*) key=${key,,} ;;
+		esac
+		nchord=$((nchord + 1))
+		grep -qxF -- "$out$key" <<<"$keydout" || chorderr+="  $mods,$key needs $out$key in keyd"$'\n'
+	done < <(grep -h '^bind=SUPER+CTRL' "$MANGO"/universal/*.conf)
+	if [[ $nchord -lt 10 ]]; then
+		bad "only $nchord ⌘ binds read from mango — the scan is broken, not the repo"
+	elif [[ -n $chorderr ]]; then
+		bad "a ⌘ bind in mango has no keyd line that sends it" "$chorderr"
+	else
+		ok "all $nchord ⌘ binds in mango are sent by a keyd line"
 	fi
 fi
 
@@ -2273,7 +2350,7 @@ else
 
 	# --- EVERY CURATED APPID IS ALSO A WINDOW-MODE ICON -----------------------
 	#
-	# `rofi -show window -show-icons` (SUPER+w) resolves art from the LOWERCASE
+	# `rofi -show window -show-icons` (⌥W) resolves art from the LOWERCASE
 	# APPID against the icon theme and takes no desktop-file step, unlike drun
 	# (rofi's wayland-window.c:610). An appid that is not itself an icon name
 	# draws a blank column and logs nothing, so modules/home/waybar.nix aliases
@@ -2309,7 +2386,7 @@ else
 		done
 		if [[ -n $winmiss ]]; then
 			bad "an appid the bar curates has no window-mode icon" \
-				"SUPER+w draws a blank column for it and logs nothing; alias it in modules/home/waybar.nix:"$'\n'"$winmiss"
+				"⌥W draws a blank column for it and logs nothing; alias it in modules/home/waybar.nix:"$'\n'"$winmiss"
 		else
 			ok "all ${#WIN_APPIDS[@]} curated appids resolve as window-mode icons in $ICON_THEME"
 		fi
@@ -2608,7 +2685,7 @@ else
 
 	# One canonical group order, and a layout may only drop a module from it
 	# (docs/adr/0042). Two layouts that disagree about the order of a module they
-	# both carry make SUPER+/ rearrange the bar under you — which is what the
+	# both carry make ⌥/ rearrange the bar under you — which is what the
 	# note "so SUPER+/ does not move it" used to ask a reader to maintain by
 	# hand, on a file where a module is one line in a list.
 	order_bad=""
@@ -2631,7 +2708,7 @@ else
 		bad "no pair of waybar layouts shares a module — the order scan is broken, not the layouts"
 	elif [[ -n $order_bad ]]; then
 		bad "two waybar layouts order a shared module differently" \
-			"SUPER+/ then moves it, which reads as the bar rearranging itself:"$'\n'"$order_bad"
+			"⌥/ then moves it, which reads as the bar rearranging itself:"$'\n'"$order_bad"
 	else
 		ok "$order_pairs layout pairs agree on the order of every module they share"
 	fi

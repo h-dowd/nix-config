@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Move the waybar between the top and bottom screen edge.
 #
-# Bound to SUPER+SHIFT+/ , alongside SUPER+/ (waybar layout). That one opens a
+# Bound to ⌥⇧/ , alongside ⌥/ (waybar layout). That one opens a
 # rofi picker over three options; this one is a straight toggle, because with
 # exactly two positions a menu is more keystrokes than the thing it selects.
 #

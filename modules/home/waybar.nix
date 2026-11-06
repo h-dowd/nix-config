@@ -504,7 +504,7 @@ let
     # offers no IPC and no signal for it — and it was released, silently, by
     # every `waybar-reload`, mode switch and layout switch. Now the inhibitor is
     # a user unit that outlives the bar, this module only reports it, and
-    # SUPER+shift+A reaches the same script. docs/adr/0031.
+    # ⌥⇧A reaches the same script. docs/adr/0031.
     #
     # `interval` as well as `signal`: the signal makes a toggle instant, and the
     # poll is the floor. If wlinhibit dies on its own the bar must stop claiming
@@ -535,7 +535,7 @@ let
     };
 
     # The control centre, as a bar button. Through menus/shell.sh, the same
-    # action SUPER+C runs. docs/adr/0033.
+    # action ⌥C runs. docs/adr/0033.
     #
     # No `exec`: there is nothing to report. A custom module with only a format
     # is a static button, which is why this one cannot render empty the way the
@@ -767,7 +767,7 @@ let
   # ── The three layouts ─────────────────────────────────────────────────────
   #
   # Each side is a list of groups, and the group order is the same in all three:
-  # A layout may drop a module but never reposition one, so SUPER+/ moves
+  # A layout may drop a module but never reposition one, so ⌥/ moves
   # nothing that both layouts carry. `checks/static.sh` asserts that, because it
   # is an invariant a plausible-looking edit can break in silence.
   #
@@ -946,7 +946,7 @@ in
       # what the both-directions assertion in checks/static.sh exists to catch.
       # Re-add it the moment a stylesheet wants it; the check enforces both ways.
       # The same table the stylesheet is generated from, for the picker to read.
-      # A file rather than an argument on the bar's click: SUPER+CTRL+I opens the
+      # A file rather than an argument on the bar's click: ⌃⌥I opens the
       # same menu, and a table that reached only one of the two callers would
       # give the key a menu with no icons. docs/adr/0052.
       "mango/waybar/app-icons.json".text = builtins.toJSON appIcons;

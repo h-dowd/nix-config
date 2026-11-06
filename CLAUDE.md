@@ -6,6 +6,8 @@ it installs. Arch is gone: no dual boot, no fallback.
 **One desktop: mango, with waybar as the bar**, swaync for notifications,
 swayosd for the OSD and awww for the wallpaper. noctalia and wayle are removed,
 and with them the desktop-mode switch (`docs/adr/0061`).
+Binds and layout follow the CachyOS desktop's (`henry/dotfiles`): ⌥ = `ALT`,
+⌘ = `SUPER+CTRL+ALT`, a dwindle tree (`docs/adr/0062`).
 
 ```
 flake.nix          at the ROOT — load-bearing (docs/adr/0001)

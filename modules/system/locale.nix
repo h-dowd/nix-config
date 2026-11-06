@@ -31,11 +31,9 @@
     options = "terminate:ctrl_alt_bksp";
   };
 
-  # keyd — transcribed from your /etc/keyd/default.conf.
-  # NixOS's module generates /etc/keyd/*.conf from Nix, so the rules have to
-  # live here rather than as a loose file you edit in place. `extraConfig`
-  # takes raw keyd syntax, which keeps this a faithful copy rather than a
-  # lossy translation into attrsets.
+  # keyd: the desktop's Mac positions (Super = ⌥, Alt = ⌘), Caps nav/Esc, Right
+  # Alt typst. mango's side and the scheme: docs/adr/0062. Raw keyd syntax;
+  # `keyd check` validates it, and the daemon only warns on a bad line.
   services.keyd = {
     enable = true;
     keyboards.default = {
@@ -45,19 +43,48 @@
 
         leftmeta+leftshift+f23 = sysrq
 
-        # Navigation layer key
+        # ⌥: every combo goes to mango and apps as Alt.
+        leftmeta = layer(alt)
+        # ⌘: Ctrl for apps (⌘C copies), except the keys mango binds below.
+        leftalt = layer(cmd)
         capslock = overload(nav, esc)
         rightalt = layer(typst)
-        leftshift = layer(shift)
 
-        [shift:S]
-        - = _
+        [cmd:C]
+        space = C-M-A-space
+        q = C-M-A-q
+        , = C-M-A-,
+        # Held: the swap keeps Super+Ctrl down until ⌘ is released, which is
+        # when mango's switcher selects.
+        tab = swapm(cmdtab, C-M-tab)
+        # Line start and end, as on the Mac; with ⇧, select to there.
+        left = home
+        right = end
 
-        [leftalt+shift]
-        - = –
+        [cmdtab:C-M]
 
-        # Navigation layer
-        [nav:main]
+        # ⌘⇧
+        [cmd+shift]
+        3 = C-M-A-S-3
+        4 = C-M-A-S-4
+        v = C-M-A-S-v
+        tab = swapm(cmdtab, C-M-S-tab)
+        left = S-home
+        right = S-end
+
+        # ⌥⌘
+        [alt+cmd]
+        h = C-M-A-h
+        l = C-M-A-l
+        esc = C-M-A-esc
+
+        # ⌃⌘
+        [control+cmd]
+        q = C-M-A-S-q
+        \ = C-M-A-S-\
+        backspace = C-M-A-S-backspace
+
+        [nav]
         h = left
         j = down
         k = up
@@ -69,19 +96,7 @@
         f = backspace
         d = delete
 
-        [special:main]
-        p = ^
-        a = *
-        [ = {
-        ] = }
-        leftshift + [ = (
-        leftshift + ] = )
-
-        # Greek/Typst layer — from your greek-typst.conf. On Arch this file was
-        # never actually pulled in by default.conf (the #include is commented
-        # out and there is no [typst] section), so `rightalt` currently maps to
-        # a layer that does not exist. Defining it here makes the binding work.
-        [typst:main]
+        [typst]
         a = macro(a l p h a)
         b = macro(b e t a)
         e = macro(e p s i l o n)
@@ -97,4 +112,10 @@
       '';
     };
   };
+
+  # keyd gives its socket to group `keyd`, which keyd-application-mapper needs.
+  # The module creates no such group, and its unit lacks CAP_SETGID to switch to
+  # one. docs/gotchas.md → keyd
+  users.groups.keyd = { };
+  systemd.services.keyd.serviceConfig.CapabilityBoundingSet = [ "CAP_SETGID" ];
 }

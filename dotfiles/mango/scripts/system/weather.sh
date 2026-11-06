@@ -11,7 +11,7 @@
 #            middle-click   (docs/adr/0056)
 #   open     right-click    hands the coordinates to a browser. No network of
 #                           its own, and no reader — it renders nothing.
-#   panel    SUPER+CTRL+w,  the detailed reading, in rofi — docs/adr/0050.
+#   panel    ⌃⌥W,          the detailed reading, in rofi — docs/adr/0050.
 #            bar left-click
 #
 # Three classes, because a served cache that does not say it is one is

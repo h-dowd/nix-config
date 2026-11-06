@@ -98,7 +98,6 @@
   # goes. `nix-store --query --referrers <path>` says who needs it.
   nixpkgs.config.permittedInsecurePackages = [
     "electron-41.10.6" # winboat
-    "sidequest-0.10.42" # bundles EOL Electron 29
   ];
 
   # Optional but recommended for a laptop: build in the background at low

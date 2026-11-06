@@ -12,7 +12,7 @@
 # signal for it — SIGUSR1/2 drive bar visibility, and `signal` refreshes
 # `custom/*` modules only — so there was no way to reach it from a key. Worse,
 # the state died with the bar: `waybar-reload`, a mode switch, a layout switch
-# and SUPER+/ all handed the machine back to the idle ladder, glyph included,
+# and ⌥/ all handed the machine back to the idle ladder, glyph included,
 # with nothing logged. A unit outlives every one of those. docs/adr/0031.
 #
 # The inhibitor is wlinhibit, whose whole job is to hold one open until killed;

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The count of windows SUPER+I has put away, as waybar JSON.
+# The count of windows ⌥I has put away, as waybar JSON.
 #
 # Replaced `wlr/taskbar`, which listed every open window — the list the
 # workspace tags already give you — where the only windows you cannot see from

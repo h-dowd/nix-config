@@ -94,7 +94,7 @@ in
     # profiles carrying one binary makes PATH order decide which you get.
     wayfreeze
 
-    # Launchers & menus. SUPER+space is `rofi -show drun` since docs/adr/0043;
+    # Launchers & menus. ⌘Space is `rofi -show drun` since docs/adr/0043;
     # there is no separate launcher package any more.
     # nixpkgs `rofi` is the merged wayland fork; `rofi-wayland` is gone. It is
     # a wrapper over `rofi-unwrapped`, so plugins go through `plugins = [...]`
@@ -105,13 +105,13 @@ in
     # dotfiles/rofi/config.rasi names the same two modes; static.sh pairs them.
     (rofi.override {
       plugins = [
-        rofi-calc # `=` in walker; SUPER+equal here. Shells out to its own qalc.
-        rofi-emoji # `.` in walker; SUPER+semicolon here
+        rofi-calc # `=` in walker; ⌥= here. Shells out to its own qalc.
+        rofi-emoji # `.` in walker; ⌥; here
       ];
     })
     # NOT a rofi plugin — a standalone front-end over `rbw`, so it is a package
     # in its own right rather than an entry above. Replaced elephant's
-    # bitwarden provider (SUPER+p).
+    # bitwarden provider (⌥P).
     rofi-rbw
 
     # Clipboard

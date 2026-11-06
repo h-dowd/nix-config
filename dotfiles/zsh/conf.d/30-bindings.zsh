@@ -11,6 +11,12 @@ bindkey -M viins '^u' backward-kill-line
 bindkey -M viins '^a' beginning-of-line     
 bindkey -M viins '^e' end-of-line
 
+# Home/End: the Caps layer's ; and ', and ⌘←/→ (keyd). Both cursor-key modes.
+for m in viins vicmd; do
+  bindkey -M $m '^[[H' beginning-of-line '^[OH' beginning-of-line
+  bindkey -M $m '^[[F' end-of-line '^[OF' end-of-line
+done
+
 # History substring search keys
 if [[ -n ${terminfo[kcuu1]} && -n ${terminfo[kcud1]} ]]; then
   bindkey -M viins "${terminfo[kcuu1]}" history-substring-search-up

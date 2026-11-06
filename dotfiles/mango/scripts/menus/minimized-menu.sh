@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Picks among the windows SUPER+I has put away and restores the one chosen.
+# Picks among the windows ⌥I has put away and restores the one chosen.
 #
-# Two callers: the bar's custom/minimized click, and SUPER+CTRL+I.
+# Two callers: the bar's custom/minimized click, and ⌃⌥I.
 #
 # The bar shows only a count: a waybar module's label is text and GTK gives it
 # one background image, so this is the surface where a window carries its own

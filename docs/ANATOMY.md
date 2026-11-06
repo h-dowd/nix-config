@@ -290,7 +290,7 @@ overlay. `scheme.nix` is a bare file that both sides `import`
 | File | Configures |
 |---|---|
 | `boot.nix` | systemd-boot with `configurationLimit = 6`, kernel and `kernelParams`, firmware, `services.snapper` |
-| `locale.nix` | `time.timeZone`, `en_GB.UTF-8`, console keymap, `services.keyd` |
+| `locale.nix` | `time.timeZone`, `en_GB.UTF-8`, console keymap, `services.keyd` (the ⌥/⌘ layers mango binds against) and its `keyd` group |
 | `networking.nix` | NetworkManager and its declared profiles, firewall, avahi, resolved, tor, wireshark, the wifi-resume unit |
 | `pia-ca.pem` | PIA's public CA, vendored so the profiles do not depend on `~/.local/share` residue |
 | `audio.nix` | PipeWire with alsa, pulse and jack; pulseaudio off; the micmute-led udev rule and unit |

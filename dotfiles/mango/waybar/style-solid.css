@@ -48,7 +48,7 @@ window#waybar {
    against the screen edge and leaves the side facing the windows bare. waybar
    adds its position as a style class on the window (bar.cpp:
    add_class(to_string(position))), so `.bottom` is available with no work on
-   our side. Toggle with SUPER+SHIFT+/ . */
+   our side. Toggle with ⌥⇧/ . */
 window#waybar.bottom {
     border-bottom: none;
     border-top: 1px solid mix(@base, @subtext, 0.3);

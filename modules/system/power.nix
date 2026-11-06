@@ -199,7 +199,7 @@ in
   # holds the ground PPD would (`services.power-profiles-daemon.enable = false`
   # above). They render nothing and say nothing. This unit owns the name and
   # answers it from `/run/tlp/last_pwr` and `power-mode`, so those clients drive
-  # the same three profiles as the bar and SUPER+SHIFT+P. docs/adr/0026.
+  # the same three profiles as the bar and ⌥⇧P. docs/adr/0026.
   systemd.services.power-profiles-tlp = {
     description = "power-profiles-daemon D-Bus API, served from TLP";
     wantedBy = [ "multi-user.target" ];

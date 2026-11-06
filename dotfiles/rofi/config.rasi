@@ -12,7 +12,7 @@
  */
 
 configuration {
-  /* Only the modes something actually reaches: `drun` on SUPER+space, `calc`
+  /* Only the modes something actually reaches: `drun` on ⌘Space, `calc`
    * and `emoji` on their own keys, and `run` from the mode switcher beside
    * drun — nothing opened a switcher until drun went on a key.
    *
@@ -23,14 +23,14 @@ configuration {
    * list there are held together by checks/static.sh. */
   modes: "drun,run,calc,emoji";
 
-  /* SUPER+SHIFT+space. rofi's default is `window,run`, which is neither half of
+  /* ⌥Space. rofi's default is `window,run`, which is neither half of
    * what that key is for — `run` lists every binary on PATH and would bury the
    * windows. Not added to `modes:` above: combi is reached by its own key, and
    * a tab for it inside drun would be a tab that re-contains drun. */
   combi-modes: "drun,window";
 
   recursivebrowser {
-    /* SUPER+SHIFT+E walks $HOME. 190,640 entries with the default regex, in
+    /* ⌥⇧E walks $HOME. 190,640 entries with the default regex, in
      * 0.33s warm — the mode is threaded and fills the list behind an open
      * window, so this is a size rather than a wait.
      *
@@ -174,7 +174,7 @@ configuration {
  *
  * @accent, and it IS mango's `focuscolor` — the launcher wears the ring the
  * focused window wears. It replaced achromatic @subtext on 2026-08-21, when
- * SUPER+space became `rofi -show drun`; docs/adr/0043 has the argument.
+ * ⌘Space became `rofi -show drun`; docs/adr/0043 has the argument.
  * Measured against @base across every scheme in service, not just the selected
  * one: heartbox 3.87:1, gruvbox 5.94:1, nord 5.99:1, mocha 8.07:1,
  * mocha-high-contrast 9.23:1. `bg3` and `comment` are still unusable — both
@@ -271,7 +271,7 @@ element-icon {
 
 /* THE MODE SWITCHER DRAWS FOR `-show drun` AND FOR NOTHING ELSE — the nine
  * hand-built menus are `-dmenu`, which is single-mode. It had no rule at all
- * until SUPER+space became a rofi mode (docs/adr/0043), so it would have
+ * until ⌘Space became a rofi mode (docs/adr/0043), so it would have
  * rendered on rofi's own metrics the first time the launcher opened. Flat, and
  * the selected tab is underlined rather than blocked: `selected-normal-background`
  * is already the accent block, and two of those in one window compete. */
