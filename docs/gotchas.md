@@ -2050,7 +2050,8 @@ a change here is tested with `boot` or `switch`, never `test`. The tell is
 
 20261019 ships DMUB `0x04000050`, newer than `0x0400004C`; the regression was an
 older one. Confirmed on its first boot (2026-11-07, kernel 7.3.1): `Loading DMUB
-firmware via PSP: version=0x04000050`, and no DMUB errors in the kernel log.
+firmware via PSP: version=0x04000050`, no DMUB errors in the kernel log, and
+the panel renders normally.
 
 ---
 
