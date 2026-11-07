@@ -1381,42 +1381,37 @@ invisible in logs and reported as "X is missing".
 
 ## 13. Known rough edges
 
-Things that are true today and worth knowing. *(Reviewed 2026-08-20.)*
+Things that are true today and worth knowing, and work still to do.
+*(Reviewed 2026-11-07.)*
 
-- **foot and ncspot keep their old colours until restarted** after a rebuild.
-  foot 1.27 has no config re-read at all — `SIGUSR1`/`SIGUSR2` only pick between
-  sections it already loaded — and ncspot reads `config.toml` once at startup.
-  kitty reloads in place, and rofi re-reads on every launch.
-
-- **Nothing here can hold off the idle ladder except a Wayland idle inhibitor.**
-  `systemd-inhibit --what=idle` does not reach swayidle, so unattended work on
-  battery meets the 30-minute suspend. `⌥⇧A` is the in-session answer
-  and it now survives a waybar restart (docs/adr/0031); `systemctl --user stop
-  swayidle` is still the one nothing in the desktop can undo silently. See §9.
-- **The spurious s2idle wake source is still unidentified**, and it is what keeps
-  `suspend-then-hibernate` off the lid. Standing suspect: the Synaptics
-  fingerprint reader — at `1-3`, the *only* device on USB bus 1, with its own
-  `power/wakeup` disabled but its parent XHCI controller `0000:74:00.3`
-  `enabled`. Disabling wakeup on that controller costs nothing (there is nothing
-  else behind it) and is untried. Since 2026-08-12 the idle rung suspends, so
-  the machine finally produces samples to test it against — see
-  `docs/adr/0016`.
+- **`rebuild` and `update` run no checks.** A re-lock on 2026-11-06 brought
+  mango 0.18 and 92 config errors that only `nix flake check` reports; `rebuild`
+  would have switched into them. To do: make `update` run `nix flake check`
+  after re-locking.
 - **The age key is a single point of failure.** `/var/lib/sops-nix/key.txt` is
   in no repo and no backup; without it `secrets/secrets.yaml` is unreadable.
-  See §11.
-- ~~Helix has no Python type checking~~ — **moot 2026-08-17.** Helix was
-  removed (`docs/adr/0027`); `pyright` serves nvim, which asked for it.
-- ~~Nothing gates a rebuild~~ — **closed 2026-08-03.** `nix flake check` now
-  builds `system.build.toplevel` and the home-manager activation package, so
-  `buildEnv` collisions and failing derivations surface before a `switch`.
-  `verify-packages.sh` was retired as a strict subset of it.
-- ~~`nix fmt` uses the unmaintained `nixpkgs-fmt`~~ — **closed 2026-08-03**,
-  now `nixfmt` (RFC 166).
-- **The `.nix` files are comment-heavy** — 1,346 of 3,506 lines. `dotfiles.nix`
-  is 54 lines of code under 249 lines of prose. Much of it duplicates
-  `docs/adr/`, which is where the narrative belongs.
-- **`~/arch-residue-backup-2026-07-30/`** (2.1 MB) is still in the home
-  directory and can be deleted.
+  To do: copy it somewhere offline. See §11.
+- **The spurious s2idle wake source is unidentified**, which keeps the lid on
+  `hibernate` rather than `suspend-then-hibernate`. Untried: disable wakeup on
+  XHCI `0000:74:00.3` (still `enabled`), the parent of the fingerprint reader
+  at `1-3`, the only device on USB bus 1. See `docs/adr/0016`.
+- **Nothing here can hold off the idle ladder except a Wayland idle inhibitor.**
+  `systemd-inhibit --what=idle` does not reach swayidle; `⌥⇧A` is the answer
+  (docs/adr/0031). See §9.
+- **foot and ncspot keep their old colours until restarted** after a rebuild;
+  neither re-reads its config.
+- **Zed's terminal panel gets ⌘C as Ctrl+C** (interrupt): keyd's mapper sees
+  the window, not the panel. ⌘⇧C copies there.
+- **opencode carries a node_modules hash override** in `pkgs/default.nix`. It
+  warns when nixpkgs catches up; delete it then.
+- **Unfinished, uncommitted on 2026-11-07:** Dissent theming in
+  `modules/home/dotfiles.nix` (with edits to CLAUDE.md, `checks/static.sh`,
+  ANATOMY and this file). Its bar-icon line in `waybar.nix` is already in
+  `5d07256`. Finish or drop.
+- **Leftovers to prune:** `stash@{0}` (printing notes, from
+  `phase-1-secrets-sops`), branch `backup/pre-msg-rewrite-2026-09-14`, and
+  ghostty if unused (kitty and foot cover both roles).
+- **The `.nix` files are comment-heavy**; much of it duplicates `docs/adr/`.
 
 ---
 
