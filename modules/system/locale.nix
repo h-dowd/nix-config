@@ -86,6 +86,15 @@
         \ = C-M-A-S-\
         backspace = C-M-A-S-backspace
 
+        # ⌥←/→ by word, as on the Mac; with ⇧, select.
+        [alt]
+        left = C-left
+        right = C-right
+
+        [alt+shift]
+        left = C-S-left
+        right = C-S-right
+
         [nav]
         h = left
         j = down

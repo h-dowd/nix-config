@@ -522,6 +522,7 @@ and the nav layer held; Right Alt is the typst layer.
 | `⌘⇧V` | Clipboard history |
 | `⌘⇧3` / `⌘⇧4` | Full screen to clipboard / region screenshot |
 | `⌃⌘Q` | Lock screen |
+| `⌥←` / `⌥→` | Back / forward a word (Ctrl+←/→ from keyd); with `⇧`, select. Takes Alt+← from Zen, where it was Back |
 | `⌘⌫` | Delete to line start. Terminals get Ctrl+U, which zsh binds to `backward-kill-line` |
 | `⌘←` / `⌘→` | Line start / end (Home/End from keyd); with `⇧`, select to there. The shell line has no selection, so in zsh `⇧` just moves |
 | `⌃⌘\` / `⌃⌘Backspace` | Notification history / clear all — swaync's own panel. `swaync-client` against an unstarted daemon exits 0 (`docs/adr/0047`) |

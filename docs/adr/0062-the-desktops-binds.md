@@ -75,7 +75,8 @@ Over the alternatives, all of which see the focused app on mango:
 - The mapper needs the `keyd` group, which the NixOS module does not create,
   and `CAP_SETGID` in keyd's unit. `docs/gotchas.md` → keyd.
 - ⌘←/→ are Home/End (⌘⇧ selects), so zsh binds Home/End in vi mode. ⌘⌫
-  deletes to line start: Shift+Home then Backspace, or Ctrl+U in terminals.
+  deletes to line start: Shift+Home then Backspace, or Ctrl+U in terminals. ⌥←/→
+  are Ctrl+←/→, by word; Zen loses Alt+← as Back.
 - ⌥ combos reach mango before apps: Alt+B/F word motion in readline and
   Alt-keyed app shortcuts are gone on the bound letters.
 - Dropped with no replacement: floating-window nudges (resize mode and the ⌥

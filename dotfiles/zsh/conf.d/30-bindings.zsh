@@ -17,6 +17,9 @@ bindkey -M viins '^e' end-of-line
 for m in viins vicmd; do
   bindkey -M $m '^[[H' beginning-of-line '^[OH' beginning-of-line '^[[1;2H' beginning-of-line
   bindkey -M $m '^[[F' end-of-line '^[OF' end-of-line '^[[1;2F' end-of-line
+  # Ctrl+←/→ (⌥←/→); with Shift, the same move.
+  bindkey -M $m '^[[1;5D' backward-word '^[[1;6D' backward-word
+  bindkey -M $m '^[[1;5C' forward-word '^[[1;6C' forward-word
 done
 
 # History substring search keys
