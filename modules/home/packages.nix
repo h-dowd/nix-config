@@ -99,7 +99,6 @@
 
       # --- Terminals / multiplexer --------------------------------------------
       ghostty
-      tmux
 
       # --- Languages / toolchains ---------------------------------------------
       rustup
@@ -183,6 +182,7 @@
       chromium
       tor-browser
       equibop
+      dissent # native GTK4 Discord client, trialled beside equibop; user-token login (ToS grey area), no voice
       teams-for-linux
       bitwarden-desktop
       _1password-gui # attr names cannot start with a digit; nixpkgs prefixes `_`

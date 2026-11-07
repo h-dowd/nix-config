@@ -35,6 +35,7 @@ let
     kitty = "kitty";
     zen-beta = "zen-browser";
     equibop = "discord";
+    "so.libdb.dissent" = "discord"; # ships its own hicolor icon under this name, so rofi needs no alias
     imv = "multimedia-photo-viewer";
     Spotify = "spotify";
     default = "application-default-icon";

@@ -1106,28 +1106,53 @@ fi
 APPCONF="$GEN_CFG/keyd/app.conf"
 if [[ -x $KEYD_BIN && -f $KEYD_CONF && -f $APPCONF ]]; then
 	KTMP=$(mktemp)
-	appbinds=$(grep -cE '^[a-z]+\.[^ ]+ = ' "$APPCONF")
+	# Layer names include composites (`cmd+shift`), so `+` is part of the name.
+	appbinds=$(grep -cE '^[a-z+]+\.[^ ]+ = ' "$APPCONF")
+	# One section per layer: keyd's parser caps the number of sections.
 	{
 		cat "$KEYD_CONF"
-		sed -nE 's/^([a-z]+)\.([^ ]+) = (.*)/[\1]\n\2 = \3/p' "$APPCONF"
+		awk '/^[a-z+]+\.[^ ]+ = / {
+			i = index($0, "."); l = substr($0, 1, i - 1)
+			sec[l] = sec[l] substr($0, i + 1) "\n"
+		}
+		END { for (l in sec) printf "[%s]\n%s", l, sec[l] }' "$APPCONF"
 	} >"$KTMP"
-	# The rewrite would create a misspelt layer rather than reject it.
+	# The rewrite would create a misspelt layer rather than reject it; `keyd
+	# bind` finds a layer by its exact name, so match the header literally.
 	nolayer=$(
-		sed -nE 's/^([a-z]+)\..*/\1/p' "$APPCONF" | sort -u |
-			while read -r l; do grep -qE "^\\[${l}[]:]" "$KEYD_CONF" || echo "$l"; done
+		sed -nE 's/^([a-z+]+)\..*/\1/p' "$APPCONF" | sort -u |
+			while read -r l; do grep -qxF "[$l]" "$KEYD_CONF" || grep -qF "[$l:" "$KEYD_CONF" || echo "$l"; done
 	)
 	if [[ $appbinds -lt 8 ]]; then
 		bad "only $appbinds bindings read from keyd/app.conf — the scan is broken, not the repo"
 	elif [[ -n $nolayer ]]; then
 		bad "keyd/app.conf binds into a layer keyd/default.conf does not define" "$nolayer"
 	elif ! err=$("$KEYD_BIN" check "$KTMP" 2>&1) || grep -q WARNING <<<"$err"; then
-		bad "a keyd/app.conf binding is invalid; the mapper applies it in silence" "$(grep WARNING <<<"$err" | tr '\n' ' ')"
+		bad "a keyd/app.conf binding is invalid; the mapper applies it in silence" "$(grep WARNING <<<"$err" || tail -1 <<<"$err")"
 	else
 		ok "all $appbinds keyd/app.conf bindings parse"
 	fi
 	rm -f "$KTMP"
 else
 	bad "no keyd/app.conf in the generation — terminals get ⌘C as Ctrl+C" "$APPCONF"
+fi
+
+# tmux binds kitty's ⌘ keys as User<n>; a User<n> with no user-keys entry is
+# a bind no key reaches. Both come from the table in modules/home/tmux.nix.
+TMUXCONF="$GEN_CFG/tmux/tmux.conf"
+if [[ -f $TMUXCONF ]]; then
+	declared=$(sed -nE 's/^set -s user-keys\[([0-9]+)\].*/\1/p' "$TMUXCONF" | sort -u)
+	bound=$(grep -oE '^bind -n User[0-9]+' "$TMUXCONF" | grep -oE '[0-9]+$' | sort -u)
+	nokey=$(comm -13 <(echo "$declared") <(echo "$bound") | tr '\n' ' ')
+	if [[ $(wc -l <<<"$bound") -lt 40 ]]; then
+		bad "only $(wc -l <<<"$bound") User binds read from tmux.conf — the scan is broken, not the repo"
+	elif [[ -n ${nokey// /} ]]; then
+		bad "tmux binds User keys no kitty map sends" "$nokey"
+	else
+		ok "all $(wc -l <<<"$bound") tmux User binds have a user-keys entry kitty sends"
+	fi
+else
+	bad "no tmux/tmux.conf in the generation — kitty starts tmux in every window" "$TMUXCONF"
 fi
 
 # A ⌘ bind is mango's `SUPER+CTRL[+ALT][+SHIFT]`, which no physical key sends:
@@ -1272,6 +1297,7 @@ done <<-EOF
 	ncspot/config.toml|#${MUTED_ACCENT}|ncspot
 	equibop/themes/palette.theme.css|#${ACCENT}|equibop
 	mango/universal/colors.conf|focus_color=0x${ACCENT}ff|mango
+	tmux/tmux.conf|pane-active-border-style "fg=#${ACCENT}"|tmux
 EOF
 # ncspot is drawn entirely from `muted`, and the needle above only proves that
 # half was reached. `p.accent` where `m.accent` was meant is the right scheme and

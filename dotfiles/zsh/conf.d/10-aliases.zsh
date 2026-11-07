@@ -79,3 +79,24 @@ alias gl='git log --oneline --graph --decorate'
 # --- zoxide (cd) ---------------------------------------------------
 # Declared by `programs.zoxide` in modules/home/shell.nix. Duplicated here
 # until 2026-08-01, costing ~8 ms per shell.
+
+# ts NAME: go to tmux session NAME, creating it here if needed. Named, so it is
+# kept. ts NAME CMD...: run CMD in a new window of NAME, in the background.
+ts() {
+  local name=${1:?usage: ts name [cmd...]}
+  shift
+  if (( $# )); then
+    if tmux has-session -t "=$name" 2>/dev/null; then
+      tmux new-window -d -t "=$name:" -c "$PWD" -- "$@"
+    else
+      tmux new-session -d -s "$name" -c "$PWD" -- "$@"
+    fi
+    return
+  fi
+  tmux has-session -t "=$name" 2>/dev/null || tmux new-session -d -s "$name" -c "$PWD"
+  if [[ -n $TMUX ]]; then
+    tmux switch-client -t "=$name"
+  else
+    tmux attach -t "=$name"
+  fi
+}

@@ -78,6 +78,7 @@ including several theories that looked right and were not.
 | bar | `mango-reload`, which restarts the bar too, via the `exec=` line that `reload_config` re-fires. `scripts/waybar/waybar-restart.sh` is the bar alone (docs/adr/0051) |
 | GTK theme | `~/.config/mango/scripts/system/gtk-apply.sh` |
 | kitty | `kill -SIGUSR1 $KITTY_PID` |
+| tmux | `prefix R` (C-s R) in a running server; new kitty windows read it anyway |
 | foot, zed, htop, imv, yazi | restart the app |
 | ncspot | restart the app |
 | nvim plugins | `:Lazy sync` |
@@ -118,7 +119,7 @@ rebuild. Five ship: `heartbox`, `mocha`, `mocha-high-contrast`, `gruvbox`, `nord
 (`docs/adr/0030`).
 
 It feeds swaylock, imv, nvim, swaync, the lock-background ramp, the bar's six
-generated layouts, kitty, foot, rofi, ncspot, Equibop and mango.
+generated layouts, kitty, foot, tmux, rofi, ncspot, Equibop and mango.
 The alternative is the same hex codes transcribed into four files with nothing
 keeping them in step. A drifted palette looks like a deliberate choice, so it
 gets a check rather than a convention: `checks/static.sh` asserts that every

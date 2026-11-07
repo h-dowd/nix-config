@@ -61,7 +61,10 @@ in
       cursor_blink_interval = 0;
 
       # Window
-      window_padding_width = "15 20";
+      # Points, not pixels: 11.25pt × 15pt is foot's `pad = "20x15"` at 96 dpi.
+      # top-left leaves the remainder at the right and bottom, as foot does.
+      window_padding_width = "11.25 15";
+      placement_strategy = "top-left";
       wayland_titlebar_color = "background";
 
       scrollback_lines = 10000;

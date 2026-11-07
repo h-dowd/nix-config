@@ -760,10 +760,34 @@ Aliases worth knowing: `cat`→`bat`, `ls`/`ll`/`la`→`eza`, `lf`→`yazi`,
 `zed`→`zeditor`, `z` for zoxide jumping. In `~` only, bare `ls` hides a fixed
 list of clutter directories; `ll`/`la` are the unfiltered escape hatches.
 
-**Terminals:** kitty (`⌥Return`), foot (`⌥⇧Return`), ghostty. All on the selected scheme,
+**Terminals:** kitty (`⌥Return`), which runs tmux in every window; foot
+(`⌥⇧Return`), which does not; ghostty. All on the selected scheme,
 Hack Nerd Font Mono 11 — kitty additionally takes bold and italic from
 0xProto Nerd Font Mono (bold-italic stays Hack; 0xProto ships none).
 `checks/static.sh` asserts every family named here actually resolves.
+
+**tmux** (`modules/home/tmux.nix`, `docs/adr/0063`): prefix `C-s`. In kitty,
+⌘ keys drive it without the prefix:
+
+| Key | Action |
+|---|---|
+| `⌘D` / `⌘⇧D` | Split right / below, in the pane's directory |
+| `⌘H/J/K/L` | Focus pane; with `⇧`, move it in the layout tree; with `⌃⇧`, join it to the neighbour |
+| `⌘⇧C` | Flatten the window's layout |
+| `` ⌘` `` / `⌘A` | Last pane / zoom |
+| `⌘⇧S` / `⌘⇧T` / `⌘⇧B` | Swap with a pane picked by number / break the pane out / balance |
+| `⌘R` | Resize mode: `h/j/k/l` by 3, `⇧` by 10, `b` balances, `Esc`/`q`/`Enter` leaves |
+| `⌘W` / `⌘Enter` | Close the pane / popup shell over it |
+| `⌘T`, `⌘1…9` | New window, go to window (`⌘9` is the last) |
+| `⌘⇧1,2,5…9` | Send the pane to that window, or bring it back |
+| `⌘⇧[` / `⌘⇧]`, `⌃⇧Tab` / `⌃Tab` | Previous / next window |
+| `⌘⇧,` | Rename the window |
+| `⌘P` / `⌘⇧N` / `⌘⇧.` | Session tree / new named session / keep this session under a name |
+| `⌘F`, `⌘⇧X` | Search up, copy mode |
+| `⌘↑` / `⌘↓`, `⌘PgUp/PgDn/Home/End` | Previous / next prompt; page and jump through scrollback |
+
+Unnamed sessions end with their window; named ones (`⌘⇧N`, `ts NAME`) are kept,
+saved every 15 minutes, and restored when the tmux server next starts.
 
 ⚠️ **kitty and foot are generated** by `programs.kitty` / `programs.foot`, from
 the **single palette** in `modules/home/palette.nix` — kitty takes `#rrggbb`,

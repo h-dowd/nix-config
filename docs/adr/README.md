@@ -59,6 +59,7 @@ these link to the record rather than duplicating it, per
 | [0060](0060-rofi-draws-the-schemes-icon-set.md) | rofi draws the scheme's icon set | Accepted (extends [0052](0052-the-bar-draws-the-icon-theme.md) to rofi; corrects the icon clause of [0043](0043-the-launcher-is-rofis-drun.md), which named the wrong cause) |
 | [0061](0061-one-desktop-noctalia-and-wayle-removed.md) | One desktop: noctalia and wayle are removed | Accepted (retires 0020, 0022, 0023, 0024, 0025, 0034, 0036, 0037, 0040, 0045, 0049; amends [0004](0004-mode-scripts-own-theming.md), [0047](0047-a-retired-daemon-is-a-call-that-exits-0.md), [0051](0051-waybar-is-the-tiling-bar-again.md)) |
 | [0062](0062-the-desktops-binds.md) | The laptop takes the desktop's binds, remapped by keyd | Accepted |
+| [0063](0063-kitty-runs-tmux.md) | kitty runs tmux; one table carries its ⌘ keys | Accepted |
 
 ## Format
 

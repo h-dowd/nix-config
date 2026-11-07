@@ -51,6 +51,7 @@ in
     # conversions go into programs.nix and come out of dotfiles.nix in the same
     # change — a config with two owners fails activation.
     ./programs.nix
+    ./tmux.nix
     ./waybar.nix
     ./dotfiles.nix
     ./theme.nix
@@ -263,9 +264,6 @@ in
     [kitty]
     cmd.c = C-S-c
     cmd.v = C-S-v
-    cmd.t = C-S-t
-    cmd.w = C-S-w
-    cmd.n = C-S-n
     cmd.equal = C-S-equal
     cmd.minus = C-S-minus
     cmd.backspace = C-u

@@ -325,6 +325,7 @@ Config, by tier ([0009](adr/0009-generated-config-over-linked-files.md), and
 | File | Tier | Purpose |
 |---|---|---|
 | `programs.nix` | 1 | 628 lines. Native `programs.*` for kitty, foot, zed, htop, imv, yazi, ncspot, git and bat, all coloured from `palette.nix` in their own `settings` |
+| `tmux.nix` | 1 | `programs.tmux` from the desktop's config, themed from the palette; kitty's `shell` and ⌘ maps and a `[kitty]` section of `keyd/app.conf`, all generated from one `cmdKeys` table ([0063](adr/0063-kitty-runs-tmux.md)) |
 | `waybar.nix` | 1 | 972 lines. **The bar in service** ([0051](adr/0051-waybar-is-the-tiling-bar-again.md)). Six layouts generated from one shared module set via `lib.genAttrs`. The four hand-maintained `.jsonc` files had drifted: `custom/window` carried `max-length` 60 in two of them and 80 in a third. Also owns `appIcons`, the appid-to-icon-name map, which generates `icons.css`, `app-icons.json` and the hicolor aliases rofi's window mode needs ([0052](adr/0052-the-bar-draws-the-icon-theme.md)) |
 | `theme.nix` | 1 | 166 lines. GTK, Qt, cursor and icons, with every name taken from the theme file rather than spelled out |
 | `dotfiles.nix` | 2, 3 | 539 lines. What is still a hand-written file. Exactly one tier-3 entry survives: `corectrl`. Generates rofi's `colors.rasi` and `icons.rasi`, mango's `universal/colors.conf` and Equibop's theme, whose name an activation step writes into Equibop's own `settings.json` |
@@ -386,6 +387,7 @@ allowed to skip, and 41 assertions carry a floor
 | `equibop/` | `theme-body.css` |
 | `corectrl/` | The single out-of-store entry |
 | `scripts/` | Extensionless bash, linked to `~/.scripts` |
+| `tmux/` | `tree.py` (AeroSpace's move, join and flatten for panes) and resurrect's keep-named hook, linked into `~/.config/tmux/` |
 
 This directory shrinks by design. kitty, foot, zed, htop, ncspot, imv, yazi,
 wlogout and the bar layouts have no file here. If a config is not under

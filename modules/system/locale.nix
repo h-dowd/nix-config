@@ -75,6 +75,9 @@
         right = S-end
 
         # ⌥⌘
+        # ⌘⌃⇧, for kitty's tmux joins (modules/home/tmux.nix binds into it).
+        [control+cmd+shift]
+
         [alt+cmd]
         h = C-M-A-h
         l = C-M-A-l
