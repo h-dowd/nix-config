@@ -132,7 +132,7 @@ Everything below assumes `rebuild` has already run.
 | wlogout | nothing; it is spawned fresh each time |
 | Neovim plugins | `:Lazy sync` |
 | GTK theme | `~/.config/mango/scripts/system/gtk-apply.sh` |
-| `autostart.conf` | log out and back in; `exec-once` fires only at startup |
+| `autostart.conf` | log out and back in; `exec_once` fires only at startup |
 
 **Edits under `dotfiles/` need a rebuild too.** They are store paths, not live
 symlinks. Reloading without rebuilding restarts against the config that was

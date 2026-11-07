@@ -76,6 +76,20 @@ let
 in
 
 {
+  # nixpkgs-unstable records the wrong hash for opencode 2.2.5's node_modules;
+  # master has this one. Warns once nixpkgs agrees. docs/gotchas.md -> nixpkgs
+  opencode =
+    let
+      hash = "sha256-prx9dX7kUvs/E3zopkaPk5LXh3xJAy5sZeum/W8L7cA=";
+    in
+    prev.lib.warnIf (prev.opencode.node_modules.outputHash == hash)
+      "pkgs/default.nix: nixpkgs now has opencode's node_modules hash; drop the override"
+      (
+        prev.opencode.overrideAttrs (old: {
+          node_modules = old.node_modules.overrideAttrs { outputHash = hash; };
+        })
+      );
+
   # ==========================================================================
   # theme* — the artefacts the palette cannot colour
   # ==========================================================================

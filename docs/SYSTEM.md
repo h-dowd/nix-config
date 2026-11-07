@@ -200,7 +200,7 @@ Rebuilding is not always enough — most desktop pieces need a nudge:
 | zsh config | `source ~/.config/zsh/conf.d/<file>.zsh`, or a new shell |
 | Neovim plugins | `:Lazy sync` |
 | GTK theme | `~/.config/mango/scripts/system/gtk-apply.sh` |
-| `autostart.conf` | **Log out and back in** — `exec-once` only fires at compositor startup |
+| `autostart.conf` | **Log out and back in** — `exec_once` only fires at compositor startup |
 
 ⚠️ **Almost nothing is live-editable any more.**
 `dotfiles/mango/` became a store path on 2026-07-30, and on 2026-08-01 the nine

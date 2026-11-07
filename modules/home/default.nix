@@ -328,7 +328,7 @@ in
   };
 
   # --- User systemd units ---------------------------------------------------
-  # autostart.conf starts this target; without it that exec-once fails silently
+  # autostart.conf starts this target; without it that exec_once fails silently
   # on every boot. A marker for other units to hang off — nothing Wants it.
   systemd.user.targets.mango-session = {
     Unit = {

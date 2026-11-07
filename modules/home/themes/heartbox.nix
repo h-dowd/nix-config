@@ -74,8 +74,8 @@ rec {
   okColor = brGreen;
   warnColor = yellow;
   # brRed, NOT `red`. Upstream sets `mError` equal to `mPrimary`, so urgent and
-  # focused would be the same colour — mango draws `urgentcolor` and
-  # `focuscolor` side by side, and a window demanding attention would look
+  # focused would be the same colour — mango draws `urgent_color` and
+  # `focus_color` side by side, and a window demanding attention would look
   # merely focused. The bright red is the same hue one step up.
   errColor = brRed;
   infoColor = blue;

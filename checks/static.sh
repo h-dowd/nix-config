@@ -296,16 +296,16 @@ fi
 
 # `mango-reload` restarts the BAR, and this one line is the whole reason it
 # does. `mmsg dispatch reload_config` re-fires every `exec=` and nothing else
-# restarts waybar, so this line silently becoming `exec-once=` leaves the bar
+# restarts waybar, so this line silently becoming `exec_once=` leaves the bar
 # on its previous config after every reload — indistinguishable from the change
-# having had no effect. A plausible edit: the rest of the file is `exec-once=`.
+# having had no effect. A plausible edit: the rest of the file is `exec_once=`.
 BAR_AUTOSTART="$MANGO/universal/autostart.conf"
 if [[ ! -s $BAR_AUTOSTART ]]; then
 	bad "universal/autostart.conf is missing or empty — the scan is broken, not the repo" "$BAR_AUTOSTART"
 elif grep -qE '^exec=[^=]*waybar/waybar-restart\.sh' "$BAR_AUTOSTART"; then
 	ok "universal/autostart.conf runs waybar-restart.sh as exec=, so reload_config restarts the bar"
-elif grep -qE '^exec-once=.*waybar/waybar-restart\.sh' "$BAR_AUTOSTART"; then
-	bad "universal/autostart.conf runs waybar-restart.sh as exec-once=, so mango-reload no longer restarts the bar" \
+elif grep -qE '^exec_once=.*waybar/waybar-restart\.sh' "$BAR_AUTOSTART"; then
+	bad "universal/autostart.conf runs waybar-restart.sh as exec_once=, so mango-reload no longer restarts the bar" \
 		"reload_config re-fires exec= lines only — the bar would keep its previous config, silently"
 else
 	bad "nothing in universal/autostart.conf runs waybar-restart.sh" \
@@ -332,7 +332,7 @@ fi
 daemonbad=""
 grep -qE '^exec=.*swaync' "$BAR_AUTOSTART" ||
 	daemonbad+="  universal/autostart.conf does not start swaync — every swaync-client call exits 0 having done nothing"$'\n'
-grep -qE '^exec-once=.*swayosd-server' "$MANGO/universal/autostart.conf" ||
+grep -qE '^exec_once=.*swayosd-server' "$MANGO/universal/autostart.conf" ||
 	daemonbad+="  universal/autostart.conf does not start swayosd-server — no volume, brightness or caps-lock feedback anywhere"$'\n'
 if [[ -n $daemonbad ]]; then
 	bad "a daemon the scripts depend on is not started by any autostart line" "$daemonbad"
@@ -372,7 +372,7 @@ fi
 #
 # The floor is on binds seen: `srcs` matches the literal `source=./`, so a
 # change of spelling would empty it and the scan would pass over nothing.
-# Each bind is keyed by the `keymode=` in force, which carries across sourced
+# Each bind is keyed by the `key_mode=` in force, which carries across sourced
 # files as mango's does: resize mode rebinds `ALT,r` on purpose.
 conf="$MANGO/config.conf"
 mapfile -t srcs < <(sed -n 's|^source=\./||p' "$conf" 2>/dev/null)
@@ -384,7 +384,7 @@ mapfile -t binds < <(
 )
 mapfile -t binds < <(
 	printf '%s\n' "${binds[@]}" |
-		awk -v m=default '/^keymode=/ { m = substr($0, 9) } /^bind=/ { print m "|" $0 }'
+		awk -v m=default '/^key_mode=/ { m = substr($0, 10) } /^bind=/ { print m "|" $0 }'
 )
 dups=$(
 	printf '%s\n' "${binds[@]}" |
@@ -1271,7 +1271,7 @@ done <<-EOF
 	rofi/colors.rasi|#${ACCENT}|rofi
 	ncspot/config.toml|#${MUTED_ACCENT}|ncspot
 	equibop/themes/palette.theme.css|#${ACCENT}|equibop
-	mango/universal/colors.conf|focuscolor=0x${ACCENT}ff|mango
+	mango/universal/colors.conf|focus_color=0x${ACCENT}ff|mango
 EOF
 # ncspot is drawn entirely from `muted`, and the needle above only proves that
 # half was reached. `p.accent` where `m.accent` was meant is the right scheme and
@@ -3096,9 +3096,11 @@ done
 # and streaked, with the build and the switch reporting nothing; 20260916 ships
 # the working one back, byte-identical to 20260810. A hash rather than a pin,
 # because this catches the regression returning through any package, and the one
-# thing that must not happen again is this file changing unnoticed.
+# thing that must not happen again is this file changing unnoticed. The version
+# is the header's ucode_version (offset 16), what the kernel logs at boot.
 # docs/gotchas.md → Power.
-DMCUB_GOOD=4bcb91d58ba727684845b02a9cdd32f37cb5a9f71bd4b93d4e678094465cda47
+DMCUB_GOOD=8d546bbbdcec355625dfb4bb4baef78841793c9c0209be42df5305855094f4eb
+DMCUB_VER=0x04000050
 FW="$SYS/firmware/amdgpu"
 dmcub="$FW/yellow_carp_dmcub.bin.zst"
 lfw=$(readlink -f "$FW/yellow_carp_pfp.bin.zst" 2>/dev/null | grep -oE 'linux-firmware-[0-9]+')
@@ -3106,12 +3108,13 @@ if [[ ! -e $dmcub || -z $lfw ]]; then
 	bad "yellow_carp firmware not found in the system firmware — the scan is broken, not the repo" "$FW"
 else
 	got=$(zstd -dc "$dmcub" 2>/dev/null | sha256sum | cut -d' ' -f1)
+	ver=0x$(zstd -dc "$dmcub" 2>/dev/null | od -A n -t x4 -j 16 -N 4 | tr -d ' ')
 	if [[ -z $got || $got == *[!0-9a-f]* ]]; then
 		bad "yellow_carp_dmcub did not decompress — the scan is broken, not the repo" "$dmcub"
 	elif [[ $got != "$DMCUB_GOOD" ]]; then
-		bad "yellow_carp_dmcub from $lfw is not the DMUB 0x0400004C blob — check 'Loading DMUB' on the next boot and re-pin if it regressed" "$got"
+		bad "yellow_carp_dmcub from $lfw is DMUB $ver, not the $DMCUB_VER blob — boot it, check 'Loading DMUB' and the panel, then update the hash" "$got"
 	else
-		ok "yellow_carp_dmcub from $lfw is the DMUB 0x0400004C blob"
+		ok "yellow_carp_dmcub from $lfw is the DMUB $DMCUB_VER blob"
 	fi
 fi
 

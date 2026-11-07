@@ -48,7 +48,8 @@ its `cmd+shift`, `alt+cmd` and `control+cmd` composites map to the chord.
 Super+Ctrl until ⌘ is released. Terminals take ⌘C, ⌘V and their other
 shortcuts on Ctrl+Shift through `keyd-application-mapper` and
 `~/.config/keyd/app.conf`; it reads the focused appid over
-`zwlr_foreign_toplevel_manager_v1`, which mango 0.17.4 advertises (v3).
+`zwlr_foreign_toplevel_manager_v1`, which mango advertises (v3 on 0.17.4 and
+0.18.4).
 
 Over the alternatives, all of which see the focused app on mango:
 
@@ -74,14 +75,13 @@ Over the alternatives, all of which see the focused app on mango:
 - The mapper needs the `keyd` group, which the NixOS module does not create,
   and `CAP_SETGID` in keyd's unit. `docs/gotchas.md` → keyd.
 - ⌘←/→ are Home/End (⌘⇧ selects), so zsh binds Home/End in vi mode. ⌘⌫
-  deletes to line start: Shift+Home then Backspace, or Ctrl+U in terminals. ⌥←/→ by
-  word is not ported.
+  deletes to line start: Shift+Home then Backspace, or Ctrl+U in terminals.
 - ⌥ combos reach mango before apps: Alt+B/F word motion in readline and
   Alt-keyed app shortcuts are gone on the bound letters.
 - Dropped with no replacement: floating-window nudges (resize mode and the ⌥
   mouse binds cover them), `togglegaps`, `focusstack`, `SUPER,Delete` lock and
   the `SUPER+CTRL` mouse binds.
-- `checks/static.sh` keys its duplicate scan by `keymode=`, because resize
+- `checks/static.sh` keys its duplicate scan by `key_mode=`, because resize
   mode rebinds `ALT,r` on purpose.
-- Written in mango 0.17.4 spellings (`keymode=`, `tagrule=`). 0.18 renames
-  both and rejects the old ones.
+- Ported to mango 0.18's spellings (`key_mode=`, `tag_rule=`) on 2026-11-07,
+  when a re-lock moved mango from 0.17.4 to 0.18.4. `docs/gotchas.md` → mango.

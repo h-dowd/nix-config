@@ -231,6 +231,13 @@ running the client's store path directly fails Xbox login with
 because the client is 64-bit only and `x86` loads nothing. The
 `Failed to load host libfmod` warning is noise — the launcher never loads it.
 
+**A fixed-output hash in nixpkgs can be wrong for days.** The 2026-11-06
+re-lock's nixpkgs-unstable recorded a `node_modules` hash for opencode 2.2.5
+that the download no longer matched (`hash mismatch in fixed-output
+derivation`), and home-manager-path depends on it, so `rebuild` stopped there.
+master had the corrected hash. `pkgs/default.nix` carries it, and warns once
+nixpkgs agrees, so the override does not outlive the bug.
+
 **A flake input can pin a builder nixpkgs has deleted.** `nix flake update` moved
 nixpkgs past 2026-09-15, where `buildGo125Module` became a throw (Go 1.25 is
 end-of-life). sops-nix still builds `sops-install-secrets` with it, and
@@ -435,6 +442,16 @@ physical Super.
 
 ### mango
 
+**A mango bump can rename its keywords, and the old spellings are errors.**
+0.18 moved to snake_case: `windowrule` → `window_rule`, `exec-once` →
+`exec_once`, `keymode` → `key_mode`, `gappih` → `gap_inner_horizontal`, every
+colour (`focuscolor` → `focus_color`) and the rule fields (`appid:` → `app_id:`,
+`noshadow:` → `no_shadow:`). On 0.17.4's config, 0.18.4 printed 92 errors and
+would have started anyway, with no autostart, no window rules and no resize
+mode. `nix flake check` runs `mango -p` and fails on it; **`rebuild` does not**,
+so a re-lock goes through the check first. Unknown dispatchers in binds are
+reported too. The IPC JSON still says `appid`.
+
 **`mmsg` takes verbs, not flags:** `get`, `dispatch`, `watch`. Anything else
 returns `{"error":"unknown command"}` **and exits 0**, so a script on the old
 dwl-era `-s -d` form reports success while doing nothing. Five scripts and all
@@ -458,12 +475,12 @@ not a scroller-layout test, it is `!floating && !minimized && !killing &&
 !unglobal`, so it holds for ordinary `tile` windows too. With three windows on
 screen the counter still read 1 and every tiled border went. Floating windows kept
 theirs, which is the tell. Verified on mango 0.16.0 by A/B on the live session at
-`borderpx=1`: `0` → 11,190 border-coloured pixels below the bar, `1` → none.
+`border_px=1`: `0` → 11,190 border-coloured pixels below the bar, `1` → none.
 `checks/static.sh` fails on a config that sets it back to `1`.
 
 ⚠️ **Sample the framebuffer; do not trust `mmsg get`.** Nothing in the client JSON
 exposes `bw`, so the only way to see whether a border is drawn is `grim` plus a
-pixel dump for the theme's `focuscolor`. A nested instance
+pixel dump for the theme's `focus_color`. A nested instance
 (`XDG_CONFIG_HOME=… WLR_BACKENDS=wayland mango`) did *not* reproduce this, so it
 also cannot be the whole test — bisect against the running session by editing a
 scratch copy of the tree and `mmsg dispatch reload_config`.
@@ -504,7 +521,7 @@ the shift level. Same for `ALT+SHIFT,1..9`. **Switching a shifted bind to
 `bindsym=`, spell out the shifted keysym** — otherwise it never fires, with
 nothing in any log.
 
-**`exec-once` fires only on initial compositor startup, not on reload** — log out
+**`exec_once` fires only on initial compositor startup, not on reload** — log out
 and back in after changing autostart. The `lxpolkit` line there is an Arch
 leftover guarded by `command -v`, so it is a permanent no-op; the real agent is
 the `polkit-gnome-authentication-agent-1` user service in `desktop.nix`.
@@ -720,7 +737,7 @@ recurs.
 
 **rofi 2.0 is a layer surface, so `windowrule` cannot reach it.** It passes the
 literal `rofi` as its `zwlr_layer_surface` namespace, which is why
-`layerrule=...,layer_name:rofi` works — and why `mmsg get all-clients` does not
+`layer_rule=...,layer_name:rofi` works — and why `mmsg get all-clients` does not
 list it while it is on screen. mango therefore draws **no border** on it. The
 `windowrule=isfloating:1,appid:Rofi` / `isnoborder:1,appid:Rofi` pair in
 `universal/rule.conf` could never match and was removed on 2026-08-20;
@@ -730,7 +747,7 @@ The consequence is visual and was live for months: with `shadows=0` and
 `layer_shadows=0`, rofi's own 1px `@overlay` edge was the only thing separating
 the menu from a window the same colour behind it — 1.67:1 in gruvbox, 1.45:1 in
 nord. It wore `@subtext` from then until 2026-08-21 and wears **`@accent`**
-now, which is mango's own `focuscolor` — one ring, drawn by whichever surface
+now, which is mango's own `focus_color` — one ring, drawn by whichever surface
 is in front, since the launcher became a rofi mode (`docs/adr/0043`).
 **3.87–9.23:1 against `@base` across the five schemes in service.** `bg3` and
 `comment` are calmer still and both collapse to 1.69:1 in nord, which is the
@@ -2030,6 +2047,10 @@ asserting which package carries it. That survives the pin's removal, and it
 fires if the regression returns through any package. Firmware loads at boot, so
 a change here is tested with `boot` or `switch`, never `test`. The tell is
 `journalctl -k -b | grep 'Loading DMUB'`.
+
+20261019 ships DMUB `0x04000050`, newer than `0x0400004C`; the regression was an
+older one. Confirmed on its first boot (2026-11-07, kernel 7.3.1): `Loading DMUB
+firmware via PSP: version=0x04000050`, and no DMUB errors in the kernel log.
 
 ---
 

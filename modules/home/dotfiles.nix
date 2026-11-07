@@ -62,14 +62,14 @@ let
   # hand-written configs keep the layout and rules and hold no hex at all.
   mangoColors = ''
     # GENERATED from modules/home/palette.nix — edit that, then rebuild.
-    bordercolor=${mangoColor p.surface}
-    focuscolor=${mangoColor p.accent}
-    rootcolor=${mangoColor p.base}
-    maximizescreencolor=${mangoColor p.okColor}
-    urgentcolor=${mangoColor p.errColor}
-    scratchpadcolor=${mangoColor p.brMagenta}
-    globalcolor=${mangoColor p.brMagenta}
-    overlaycolor=${mangoColor p.brCyan}
+    border_color=${mangoColor p.surface}
+    focus_color=${mangoColor p.accent}
+    root_color=${mangoColor p.base}
+    maximized_screen_color=${mangoColor p.okColor}
+    urgent_color=${mangoColor p.errColor}
+    scratchpad_color=${mangoColor p.brMagenta}
+    global_color=${mangoColor p.brMagenta}
+    overlay_color=${mangoColor p.brCyan}
   '';
 
   # nvim is linked as ONE directory symlink, so unlike mango there is no way to

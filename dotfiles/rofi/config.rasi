@@ -109,8 +109,8 @@ configuration {
    The system's design language, and none of it is invented here — it is read
    off what already exists:
 
-     tiling.conf   borderpx=1, border_radius=0, bordercolor=0x3c3836,
-                   focuscolor=0xd79921, gaps 0
+     config.conf   border_px=1, border_radius=0, border_color=0x3c3836,
+                   focus_color=0xd79921, gaps 0
      style-solid.css   border-radius: 0, `border: none` with 1px @overlay
                    hairlines, flat transparent modules, and selection drawn as
                    `background: @accent; color: @base` on the active workspace
@@ -172,7 +172,7 @@ configuration {
  * `shadows=0` and `layer_shadows=0` there is nothing else separating the menu
  * from a window the same colour behind it.
  *
- * @accent, and it IS mango's `focuscolor` — the launcher wears the ring the
+ * @accent, and it IS mango's `focus_color` — the launcher wears the ring the
  * focused window wears. It replaced achromatic @subtext on 2026-08-21, when
  * ⌘Space became `rofi -show drun`; docs/adr/0043 has the argument.
  * Measured against @base across every scheme in service, not just the selected

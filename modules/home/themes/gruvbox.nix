@@ -71,7 +71,7 @@ rec {
   # so the two can move apart without one silently following the other.
   comment = "928374";
   # NOTE WHICH YELLOW. The accent is the NORMAL yellow, which is also mango's
-  # focuscolor; the status colour `warnColor` below is the BRIGHT one. The bar
+  # focus_color; the status colour `warnColor` below is the BRIGHT one. The bar
   # has always used them that way, and naming them apart is what stops the next
   # edit from collapsing the two.
   accent = "d79921";
