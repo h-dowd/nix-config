@@ -334,6 +334,9 @@ in
 
   programs.kitty = {
     settings.shell = "tmux new-session";
+    # kitty counts tmux as a running program and would ask on every close. A
+    # closed window ends an unnamed session and leaves a named one running.
+    settings.confirm_os_window_close = 0;
     keybindings =
       lib.listToAttrs (map (k: lib.nameValuePair (kittyCombo k) "send_text all ${seq k.n}") cmdKeys)
       // lib.listToAttrs (map (k: lib.nameValuePair (kittyCombo k) k.action) kittyActions)
