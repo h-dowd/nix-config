@@ -41,7 +41,8 @@ in
     #
     # Note the kernel is NOT the source here: console loglevel is 4, and
     # `journalctl -k -p err` over the greeter's window is empty. `quiet` and
-    # `boot.consoleLogLevel` would be cargo cult. docs/gotchas.md → Desktop.
+    # `boot.consoleLogLevel` would be cargo cult. After a hibernate at the
+    # greeter, the kernel can print over it. docs/gotchas.md → Desktop.
     useTextGreeter = true;
 
     settings.default_session = {

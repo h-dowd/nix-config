@@ -324,6 +324,20 @@ Lowering it would have changed nothing while looking exactly like a fix that
 worked, because the next boot's timing varies anyway. Check which stream is
 actually printing before quietening either one.
 
+**After a hibernate, the kernel can be the source.** If the machine hibernates
+at the greeter, any error (priority < 4) the kernel logs during resume prints on
+tty1, over tuigreet, and tuigreet does not clear it. Seen once, on 2026-11-22,
+from the touchpad:
+
+```console
+$ journalctl -b -k -p err --since <resume> --until <login>
+12:18:13 kernel: i2c_hid_acpi i2c-ELAN06D8:00: i2c_hid_get_input: incomplete report (31/221)
+```
+
+It is harmless and has not recurred, so the loglevel stays at 4. If it becomes
+frequent, set `boot.consoleLogLevel = 3`; the lines still go to `journalctl -k`.
+To find the resume time: `journalctl -b -g 'Hibernating|Lid opened'`.
+
 ### The session's output prints there too, which is a different bug
 
 `useTextGreeter` is also what causes this one, and it looks identical from the
