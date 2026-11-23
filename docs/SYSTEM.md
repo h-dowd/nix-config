@@ -1402,8 +1402,6 @@ Things that are true today and worth knowing, and work still to do.
   neither re-reads its config.
 - **Zed's terminal panel gets ⌘C as Ctrl+C** (interrupt): keyd's mapper sees
   the window, not the panel. ⌘⇧C copies there.
-- **opencode carries a node_modules hash override** in `pkgs/default.nix`. It
-  warns when nixpkgs catches up; delete it then.
 - **Unfinished, uncommitted on 2026-11-07:** Dissent theming in
   `modules/home/dotfiles.nix` (with edits to CLAUDE.md, `checks/static.sh`,
   ANATOMY and this file). Its bar-icon line in `waybar.nix` is already in

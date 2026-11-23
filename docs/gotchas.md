@@ -235,8 +235,12 @@ because the client is 64-bit only and `x86` loads nothing. The
 re-lock's nixpkgs-unstable recorded a `node_modules` hash for opencode 2.2.5
 that the download no longer matched (`hash mismatch in fixed-output
 derivation`), and home-manager-path depends on it, so `rebuild` stopped there.
-master had the corrected hash. `pkgs/default.nix` carries it, and warns once
-nixpkgs agrees, so the override does not outlive the bug.
+master had the corrected hash, and `pkgs/default.nix` carried it, set to warn
+once nixpkgs agreed. That guard only caught nixpkgs adopting *the same* hash:
+the 2026-11-23 re-lock moved opencode to 2.3.0, the pinned 2.2.5 hash was forced
+onto it, and the build failed with the same error. **Pin a hash override to a
+version** (`assert prev.opencode.version == "…"`), so a bump fails at evaluation
+and names the override. The override is gone.
 
 **A flake input can pin a builder nixpkgs has deleted.** `nix flake update` moved
 nixpkgs past 2026-09-15, where `buildGo125Module` became a throw (Go 1.25 is
